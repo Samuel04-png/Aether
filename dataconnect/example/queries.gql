@@ -1,0 +1,27 @@
+mutation CreateUser($displayName: String!, $email: String!) @auth(level: USER) {
+  user_insert(data: {displayName: $displayName, email: $email, createdAt_expr: "request.time", id_expr: "uuidV4()"})
+}
+
+query GetProjectsForUser($userId: UUID!) @auth(level: USER) {
+  projects(where: {userId: {eq: $userId}}) {
+    id
+    name
+    description
+    status
+  }
+}
+
+mutation CreateTask($projectId: UUID!, $name: String!, $description: String!, $dueDate: Date!, $status: String!) @auth(level: USER) {
+  task_insert(data: {projectId: $projectId, name: $name, description: $description, dueDate: $dueDate, status: $status, createdAt_expr: "request.time", id_expr: "uuidV4()"})
+}
+
+query ListTransactions @auth(level: USER) {
+  transactions(orderBy: [{date: DESC}], limit: 100) {
+    id
+    amount
+    date
+    description
+    type
+    category
+  }
+}

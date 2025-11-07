@@ -1,0 +1,117 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function: Check if user is authenticated
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Helper function: Check if user owns the resource
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+    
+    // User documents and all subcollections
+    match /users/{userId} {
+      // Users can read and write their own user document
+      allow read, write: if isOwner(userId);
+      
+      // User subcollections - only owner can access
+      match /profile/{profileId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      match /tasks/{taskId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      match /projects/{projectId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      match /leads/{leadId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      match /dashboard/{dashboardId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      match /teamMembers/{memberId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      match /notifications/{notificationId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      match /scheduledPosts/{postId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      match /socialStats/{statId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+    
+    // Channels collection - member-based access
+    match /channels/{channelId} {
+      // Read: User must be a member of the channel
+      allow read: if isSignedIn() && 
+        request.auth.uid in resource.data.members;
+      
+      // Create: User must be authenticated and set themselves as creator
+      allow create: if isSignedIn() && 
+        request.auth.uid == request.resource.data.createdBy;
+      
+      // Update: Creator or any member can update
+      allow update: if isSignedIn() && (
+        request.auth.uid == resource.data.createdBy ||
+        request.auth.uid in resource.data.members
+      );
+      
+      // Delete: Only creator can delete
+      allow delete: if isSignedIn() && 
+        request.auth.uid == resource.data.createdBy;
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        // Read: User must be a member of the parent channel
+        allow read: if isSignedIn() && 
+          request.auth.uid in get(/databases/$(database)/documents/channels/$(channelId)).data.members;
+        
+        // Create: User must be authenticated and sender.id must match auth.uid
+        allow create: if isSignedIn() && 
+          request.auth.uid == request.resource.data.sender.id;
+        
+        // Update/Delete: Only sender can modify their own messages
+        allow update, delete: if isSignedIn() && 
+          request.auth.uid == resource.data.sender.id;
+      }
+    }
+    
+    // Project invites collection
+    match /projectInvites/{inviteId} {
+      // Read: Invited user or inviter can read
+      allow read: if isSignedIn() && (
+        request.auth.uid == resource.data.invitedBy ||
+        request.auth.uid == resource.data.invitedUser
+      );
+      
+      // Create: User must be authenticated and set themselves as inviter
+      allow create: if isSignedIn() && 
+        request.auth.uid == request.resource.data.invitedBy;
+      
+      // Update: Invited user or inviter can update (for accept/decline)
+      allow update: if isSignedIn() && (
+        request.auth.uid == resource.data.invitedUser ||
+        request.auth.uid == resource.data.invitedBy
+      );
+      
+      // Delete: Only inviter can delete
+      allow delete: if isSignedIn() && 
+        request.auth.uid == resource.data.invitedBy;
+    }
+  }
+}

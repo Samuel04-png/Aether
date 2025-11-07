@@ -1,0 +1,391 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---------- Theme Variables ---------- */
+@layer base {
+  :root {
+    /* Aether Brand Colors - Light Theme */
+    --brand: 0.65 0.12 240; /* #1A73E8 Azure-Blue */
+    --brand-light: 0.72 0.18 240; /* #1A73E8 lighter variant */
+    --brand-dark: 0.40 0.06 240; /* #0A3D62 Deep Blue-Teal */
+    
+    /* Accent Colors (Growth/Energy) */
+    --accent-start: #7CE03A; /* Growth / Energy (lime) */
+    --accent-mid: #FFB703; /* Alert / Opportunity gold */
+    --accent-end: #FF7A00; /* Progress / Motion */
+    
+    /* Enhanced Color Palette */
+    --chart-1: 0.65 0.12 240; /* Primary Blue */
+    --chart-2: 0.65 0.15 160; /* Emerald/Teal */
+    --chart-3: 0.70 0.15 50; /* Amber/Gold */
+    --chart-4: 0.65 0.15 300; /* Purple */
+    --chart-5: 0.70 0.15 20; /* Coral/Rose */
+    --chart-6: 0.65 0.12 200; /* Cyan */
+    
+    /* Light Mode Backgrounds - Brighter & More Vibrant */
+    --background: 0.99 0.002 250; /* #F8FAFD - Slightly brighter */
+    --foreground: 0.12 0.015 260; /* Darker text for better contrast */
+    --card: 1.0 0.0 0; /* #FFFFFF - Pure white */
+    --card-foreground: 0.12 0.015 260;
+    --border: 0.92 0.010 250; /* #E8ECF3 - More visible border */
+    --input: 0.99 0.002 250; /* Bright input background */
+    --ring: 0.65 0.12 240; /* Primary blue for focus rings */
+    --accent: 0.88 0.015 240; /* Brighter accent */
+    --accent-foreground: 0.12 0.015 260;
+    --muted: 0.97 0.003 250; /* Brighter muted background */
+    --muted-foreground: 0.35 0.015 260; /* Better contrast for muted text */
+    --sidebar: 1.0 0.0 0; /* #FFFFFF */
+    --sidebar-foreground: 0.12 0.015 260;
+    --primary: 0.65 0.12 240; /* #1A73E8 */
+    --primary-foreground: 1.0 0.0 0; /* White text on primary */
+    --secondary: 0.88 0.015 240;
+    --secondary-foreground: 0.12 0.015 260;
+    --destructive: 0.65 0.25 25;
+    --destructive-foreground: 1.0 0.0 0;
+    --popover: 1.0 0.0 0; /* #FFFFFF */
+    --popover-foreground: 0.12 0.015 260;
+  }
+
+  /* Enhanced Dark Theme - Aether Palette - Brighter */
+  .dark {
+    /* Aether Brand Colors - Dark Theme */
+    --brand: 0.65 0.12 240; /* #1A73E8 Azure-Blue */
+    --brand-light: 0.72 0.18 240;
+    --brand-dark: 0.40 0.06 240; /* #0A3D62 Deep Blue-Teal */
+    
+    /* Accent Colors */
+    --accent-start: #7CE03A;
+    --accent-mid: #FFB703;
+    --accent-end: #FF7A00;
+    
+    /* Enhanced Color Palette - Dark Mode */
+    --chart-1: 0.65 0.12 240; /* Primary Blue */
+    --chart-2: 0.65 0.15 160; /* Emerald/Teal */
+    --chart-3: 0.70 0.15 50; /* Amber/Gold */
+    --chart-4: 0.65 0.15 300; /* Purple */
+    --chart-5: 0.70 0.15 20; /* Coral/Rose */
+    --chart-6: 0.65 0.12 200; /* Cyan */
+    
+    /* Dark Mode Backgrounds - Brighter for better visibility */
+    --background: 0.08 0.008 250; /* #0D1117 */
+    --foreground: 0.98 0.005 260; /* Bright white text */
+    --card: 0.11 0.012 250; /* #111927 - Slightly brighter */
+    --card-foreground: 0.98 0.005 260;
+    --border: 0.18 0.020 250; /* #1E2533 - More visible borders */
+    --input: 0.12 0.010 250; /* Brighter input background */
+    --ring: 0.65 0.12 240; /* Primary blue for focus rings */
+    --accent: 0.20 0.025 250; /* Brighter accent areas */
+    --accent-foreground: 0.98 0.005 260;
+    --muted: 0.13 0.012 250; /* Brighter muted background */
+    --muted-foreground: 0.65 0.015 260; /* Better contrast for muted text */
+    --sidebar: 0.08 0.008 250; /* #0D1117 */
+    --sidebar-foreground: 0.98 0.005 260;
+    --primary: 0.65 0.12 240; /* #1A73E8 */
+    --primary-foreground: 1.0 0.0 0; /* White text on primary */
+    --secondary: 0.20 0.025 250;
+    --secondary-foreground: 0.98 0.005 260;
+    --destructive: 0.70 0.25 25;
+    --destructive-foreground: 1.0 0.0 0;
+    --popover: 0.11 0.012 250; /* #111927 - Card color */
+    --popover-foreground: 0.98 0.005 260;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply scroll-smooth;
+  }
+
+  /* Placeholder styles */
+  input::placeholder,
+  textarea::placeholder {
+    color: oklch(var(--foreground) / 0.4);
+  }
+}
+
+/* ---------- Animations ---------- */
+@layer utilities {
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes slide-in {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+  }
+
+  @keyframes scale-in {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: -200px 0; }
+    100% { background-position: calc(200px + 100%) 0; }
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.6s ease-out;
+  }
+
+  .animate-slide-in {
+    animation: slide-in 0.3s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scale-in 0.2s ease-out;
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s infinite linear;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      oklch(var(--accent) / 0.1),
+      transparent
+    );
+    background-size: 200px 100%;
+  }
+}
+
+/* ---------- Enhanced Components ---------- */
+@layer components {
+  /* Premium Card - Brighter & More Vibrant */
+  .card {
+    @apply rounded-xl bg-card border shadow-md backdrop-blur-sm;
+    @apply transition-all duration-200 ease-out hover:shadow-lg hover:scale-[1.01];
+    @apply animate-fade-in py-8 px-6;
+    border-color: oklch(var(--border) / 0.6);
+  }
+  
+  .card:hover {
+    border-color: oklch(var(--primary) / 0.4);
+  }
+  
+  /* Spacing Utilities */
+  .section-spacing {
+    @apply py-8 space-y-10;
+  }
+  
+  .card-grid {
+    @apply grid gap-6;
+  }
+
+  .card-glass {
+    @apply card bg-white/10 border-white/20 backdrop-blur-2xl dark:bg-black/20;
+    @apply dark:border-white/10;
+  }
+
+  /* Enhanced Button System - Aether Premium */
+  .btn {
+    @apply px-6 py-3 rounded-xl font-semibold transition-all duration-200 ease-out;
+    @apply flex items-center gap-2 relative overflow-hidden;
+    @apply active:scale-95 focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+
+  .btn-primary {
+    @apply btn text-white shadow-lg hover:shadow-glow hover:scale-105;
+    @apply focus:ring-primary-500 focus:ring-offset-background;
+    background: linear-gradient(135deg, #1A73E8 0%, #59B8FF 45%, #2DE3FF 100%);
+  }
+
+  .btn-primary:hover {
+    background: linear-gradient(135deg, #1A73E8 0%, #59B8FF 50%, #2DE3FF 100%);
+    filter: brightness(1.1);
+  }
+
+  .btn-secondary {
+    @apply btn bg-accent text-foreground shadow-md hover:shadow-lg;
+    @apply border border-border hover:border-primary-300;
+  }
+
+  .btn-outline {
+    @apply btn bg-transparent text-foreground;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    backdrop-filter: blur(8px);
+  }
+
+  .btn-outline:hover {
+    @apply bg-white/5 border-white/40;
+  }
+
+  .btn-ghost {
+    @apply btn bg-transparent text-foreground hover:bg-accent/50;
+    @apply border border-transparent hover:border-border;
+  }
+
+  .btn-destructive {
+    @apply btn bg-destructive text-white shadow-lg hover:shadow-red-500/25;
+  }
+
+  .btn-accent {
+    @apply btn text-white font-semibold;
+    background: linear-gradient(85deg, #7CE03A, #FFB703, #FF7A00);
+  }
+
+  .btn-accent:hover {
+    filter: brightness(1.1) saturate(1.1);
+  }
+
+  .btn-loading {
+    @apply pointer-events-none opacity-70;
+  }
+
+  .btn::before {
+    content: '';
+    @apply absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent;
+    @apply translate-x-[-100%];
+    transition: transform 0.6s ease;
+  }
+
+  .btn:hover::before {
+    @apply translate-x-[100%];
+  }
+
+  /* Premium Glass Effect */
+  .glass {
+    @apply bg-white/10 border border-white/20 backdrop-blur-2xl shadow-2xl;
+    @apply dark:bg-black/20 dark:border-white/10;
+  }
+
+  /* Enhanced Typography */
+  .heading {
+    @apply text-4xl font-bold tracking-tight bg-gradient-to-br from-foreground to-foreground/80 bg-clip-text text-transparent;
+  }
+
+  .heading-2 {
+    @apply text-2xl font-semibold tracking-tight;
+  }
+
+  .subtitle {
+    @apply text-lg text-foreground/70 font-medium;
+  }
+
+  /* Sidebar Components */
+  .sidebar {
+    @apply w-80 bg-sidebar text-sidebar-foreground border-r border-border;
+    @apply h-screen fixed left-0 top-0 z-40 overflow-y-auto;
+    @apply animate-slide-in;
+  }
+
+  .sidebar-item {
+    @apply flex items-center gap-3 px-4 py-2.5 rounded-xl transition-all duration-200;
+    @apply hover:bg-accent/60 hover:pl-6 text-sidebar-foreground/80 hover:text-sidebar-foreground;
+  }
+  
+  .sidebar-item.active {
+    @apply bg-primary-500 text-white shadow-lg pl-6 font-semibold;
+  }
+
+  /* Navigation */
+  .nav-bar {
+    @apply glass fixed top-0 left-0 right-0 z-50 mx-6 mt-4 rounded-2xl;
+    @apply animate-fade-in;
+  }
+
+  /* Progress & Loading */
+  .progress-bar {
+    @apply w-full h-2 bg-accent/20 rounded-full overflow-hidden;
+  }
+
+  .progress-fill {
+    @apply h-full bg-brand rounded-full transition-all duration-500 ease-out;
+    @apply animate-shimmer;
+  }
+
+  .skeleton {
+    @apply bg-accent/20 rounded-lg animate-pulse;
+  }
+
+  /* Enhanced Form Elements - Premium */
+  .input {
+    @apply w-full px-4 py-3 rounded-lg border border-border bg-input;
+    @apply transition-all duration-200 focus:ring-2 focus:outline-none shadow-sm;
+    border-color: oklch(var(--border));
+  }
+  
+  .input:hover {
+    border-color: oklch(var(--primary) / 0.3);
+  }
+  
+  .input:focus {
+    border-color: oklch(var(--primary) / 0.5);
+    --tw-ring-color: oklch(var(--primary) / 0.5);
+  }
+
+  .select {
+    @apply input pr-10 appearance-none bg-no-repeat;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+    background-position: right 1rem center;
+  }
+
+  /* Badge System */
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium;
+    @apply transition-colors duration-200;
+  }
+
+  .badge-primary {
+    @apply badge bg-primary-100 text-primary-700 border border-primary-300;
+  }
+
+  .badge-secondary {
+    @apply badge bg-accent text-foreground border border-border;
+  }
+}
+
+/* Enhanced Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: oklch(var(--muted));
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: oklch(var(--accent));
+  border-radius: 8px;
+  transition: background 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: oklch(var(--brand));
+}
+
+/* Selection Styles */
+::selection {
+  background: oklch(var(--primary) / 0.3);
+}
+
+/* Focus States */
+.focus-ring:focus-visible {
+  @apply outline-none ring-2 ring-primary-500 ring-offset-2 ring-offset-background;
+}
+
+/* Print Styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

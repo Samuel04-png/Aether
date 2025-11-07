@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aether – Business Co-Pilot</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/x-icon" href="/aether-logo/favicon/favicon.ico" />
+  <meta name="theme-color" content="#0D1117" />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Tailwind -->
+  <link rel="stylesheet" href="/index.css">
+
+  <!-- Library imports -->
+  <script type="importmap">
+  {
+    "imports": {
+      "react/": "https://aistudiocdn.com/react@^19.2.0/",
+      "react": "https://aistudiocdn.com/react@^19.2.0",
+      "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+      "@google/genai": "https://aistudiocdn.com/@google/genai@^1.28.0",
+      "recharts": "https://aistudiocdn.com/recharts@^3.3.0"
+    }
+  }
+  </script>
+
+  <script>
+    // Enhanced theme detection with system preference
+    (() => {
+      const stored = localStorage.getItem("aether-theme");
+      const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      const theme = stored ?? (systemDark ? "dark" : "light");
+      
+      document.documentElement.classList.add(theme);
+      
+      // Update meta theme-color
+      const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+      if (metaThemeColor) {
+        metaThemeColor.content = theme === 'dark' ? '#0D1117' : '#F8FAFD';
+      }
+    })();
+  </script>
+</head>
+
+<body class="min-h-screen bg-background text-foreground font-sans antialiased">
+  <div id="root"></div>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
