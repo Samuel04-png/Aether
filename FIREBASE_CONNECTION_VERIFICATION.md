@@ -139,6 +139,18 @@ Open your browser's developer console (F12) and look for:
 
 4. **Expected Result**: ✅ Channel and messages should be created
 
+### 3.7 Test Team Member Search (optional but recommended)
+
+1. **Trigger directory entry creation**:
+   - Have a teammate sign in, or send them an invite so they appear in `userDirectory`
+   - Check Firestore → `userDirectory/{uid}` to confirm the document exists
+
+2. **Search from the app**:
+   - Open any team-member search or invite modal
+   - Type the teammate’s name or email
+
+3. **Expected Result**: ✅ The teammate appears in search results without permission errors
+
 ## Step 4: Troubleshooting Common Issues
 
 ### Issue: "Missing Firebase environment variables"

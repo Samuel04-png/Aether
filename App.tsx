@@ -22,6 +22,7 @@ import { useAuth } from './contexts/AuthContext';
 import { useUserProfile } from './hooks/useUserProfile';
 import { seedUserWorkspace } from './services/seedService';
 import { Skeleton } from '@/components/ui/skeleton';
+import { LogoSpinner } from '@/components/shared/Logo';
 
 // Lazy load heavy components for better performance
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -44,7 +45,6 @@ const App: React.FC = () => {
 
   const { user, initializing } = useAuth();
   const { profile, loading: profileLoading, saveProfile } = useUserProfile(user?.uid);
-
   // Developer signature
   React.useEffect(() => {
     console.log(
@@ -171,11 +171,7 @@ const App: React.FC = () => {
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.3 }}
           >
-            <img 
-              src="/aether-logo/Logo.png" 
-              alt="Aether Logo" 
-              className="h-24 w-auto drop-shadow-2xl mb-6"
-            />
+            <LogoSpinner />
           </motion.div>
           <div className="flex flex-col items-center space-y-3">
             <div className="w-64 h-1.5 bg-muted/50 rounded-full overflow-hidden backdrop-blur-sm">

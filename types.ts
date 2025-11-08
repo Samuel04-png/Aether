@@ -76,6 +76,8 @@ export interface Project {
   tasks: Task[];
   files: ProjectFile[];
   chat: ChatMessage[];
+  ownerId?: string;
+  teamMemberIds?: string[];
   workspaceId?: string;
   createdBy?: string; // User ID of project creator
   createdAt?: string;
@@ -113,6 +115,9 @@ export interface Lead {
   email: string;
   status: 'New' | 'Contacted' | 'Qualified' | 'Lost';
   source: string;
+  archived?: boolean;
+  archivedAt?: string;
+  createdAt?: string;
 }
 
 export interface Notification {

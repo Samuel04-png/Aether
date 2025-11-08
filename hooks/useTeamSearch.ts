@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { collection, getDocs, query, where, limit } from 'firebase/firestore';
+import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { TeamMember } from '../types';
 import { db } from '../services/firebase';
 
@@ -18,55 +18,46 @@ export const useTeamSearch = () => {
     setError(null);
 
     try {
-      const usersCollection = collection(db, 'users');
-      
-      // Search by email (exact match or startsWith)
-      const emailQuery = query(
-        usersCollection,
-        where('email', '>=', searchTerm.toLowerCase()),
-        where('email', '<=', searchTerm.toLowerCase() + '\uf8ff'),
-        limit(10)
-      );
+      const directoryCollection = collection(db, 'userDirectory');
+      const normalized = searchTerm.trim().toLowerCase();
+      const terms = Array.from(
+        new Set([
+          normalized,
+          ...normalized.split(/\s+/).filter(Boolean),
+        ]),
+      ).filter(Boolean);
 
-      const emailSnapshot = await getDocs(emailQuery);
-      const emailResults = emailSnapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          name: data.displayName || data.email || 'Unknown User',
-          email: data.email || '',
-          role: data.role || 'Member',
-          avatar: data.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.displayName || data.email || 'User')}`,
-        };
-      });
+      const resultsMap = new Map<string, TeamMember>();
 
-      // Search by displayName (case-insensitive contains)
-      const nameQuery = query(
-        usersCollection,
-        where('displayName', '>=', searchTerm),
-        where('displayName', '<=', searchTerm + '\uf8ff'),
-        limit(10)
-      );
+      for (const term of terms) {
+        try {
+          const termQuery = query(
+            directoryCollection,
+            where('keywords', 'array-contains', term),
+            limit(10),
+          );
+          const snapshot = await getDocs(termQuery);
+          snapshot.docs.forEach((docSnapshot) => {
+            const data = docSnapshot.data() as any;
+            const id = docSnapshot.id;
+            if (!id) return;
+            const name = data.displayName || data.email || 'Unknown User';
+            const email = data.email || '';
+            const avatar = data.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`;
+            resultsMap.set(id, {
+              id,
+              name,
+              email,
+              role: data.role || 'Member',
+              avatar,
+            });
+          });
+        } catch (innerError) {
+          console.warn('User directory search failed for term', term, innerError);
+        }
+      }
 
-      const nameSnapshot = await getDocs(nameQuery);
-      const nameResults = nameSnapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          name: data.displayName || data.email || 'Unknown User',
-          email: data.email || '',
-          role: data.role || 'Member',
-          avatar: data.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(data.displayName || data.email || 'User')}`,
-        };
-      });
-
-      // Combine and deduplicate results
-      const allResults = [...emailResults, ...nameResults];
-      const uniqueResults = Array.from(
-        new Map(allResults.map((user) => [user.id, user])).values()
-      );
-
-      setSearchResults(uniqueResults);
+      setSearchResults(Array.from(resultsMap.values()).slice(0, 10));
     } catch (error: any) {
       console.error('Error searching users:', error);
       setError('Failed to search users. Please try again.');

@@ -9,6 +9,7 @@
      - User data access (users can only access their own data)
      - Channels and messages (member-based access)
      - Project invites (participant-based access)
+     - Collaboration directory (`userDirectory`) for secure member search
 
 ### 2. ✅ Created Documentation
    - **FIRESTORE_RULES_TO_PASTE.md**: Complete rules ready to paste in Firebase Console
@@ -75,12 +76,18 @@
    - Create a project invite
    - Verify it appears in Firestore
 
+6. **Test teammate search**:
+   - Invite a teammate or have them sign in so a `userDirectory/{uid}` document is created automatically
+   - Use the team search/invite modal to look them up
+   - ✅ Search should return directory results without touching private user docs
+
 ## Security Rules Overview
 
 ### User Data (`/users/{userId}`)
 - ✅ Users can only access their own data
 - ✅ All subcollections (tasks, projects, leads, etc.) are protected
 - ✅ Owner-only access enforced
+- ✅ Projects now capture `ownerId` + `teamMemberIds` metadata for rule checks
 
 ### Channels (`/channels/{channelId}`)
 - ✅ Only members can read channels
@@ -92,6 +99,12 @@
 - ✅ Only participants (inviter + invited user) can read
 - ✅ Only inviter can delete
 - ✅ Both can update (for accept/decline)
+
+### User Directory (`/userDirectory/{userId}`)
+- ✅ Public collaboration directory used for searching teammates
+- ✅ Any authenticated user can read directory entries
+- ✅ Only the owner of an entry can create/update/delete their profile snapshot
+
 
 ## Verification Checklist
 

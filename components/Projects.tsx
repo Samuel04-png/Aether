@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { SparklesIcon, ChevronLeftIcon, PlusIcon, FileIcon, UsersIcon, MessageIcon, TasksIcon, UploadIcon, EnvelopeIcon } from './shared/Icons';
+import { SparklesIcon, ChevronLeftIcon, PlusIcon, FileIcon, UsersIcon, MessageIcon, TasksIcon, UploadIcon, EnvelopeIcon, TrashIcon } from './shared/Icons';
 import { SearchInput } from '@/components/ui/search-input';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,16 +31,28 @@ interface ProjectTaskColumnProps {
     onDragOver: (event: React.DragEvent<HTMLDivElement>) => void;
     onDrop: (event: React.DragEvent<HTMLDivElement>, status: TaskStatus) => void;
     onAssign: (taskId: string, memberId: string | null) => void;
+    onDeleteTask: (taskId: string) => void;
+    canManage?: boolean;
 }
 
-const ProjectTaskColumn: React.FC<ProjectTaskColumnProps> = ({ status, tasks, team, onDragStart, onDragOver, onDrop, onAssign }) => {
+const ProjectTaskColumn: React.FC<ProjectTaskColumnProps> = ({
+    status,
+    tasks,
+    team,
+    onDragStart,
+    onDragOver,
+    onDrop,
+    onAssign,
+    onDeleteTask,
+    canManage = true,
+}) => {
     const titleMap: Record<TaskStatus, string> = { todo: 'To Do', inprogress: 'In Progress', done: 'Done' };
 
     return (
         <div
             className="bg-card/50 border border-border rounded-lg p-4 flex-1"
-            onDragOver={onDragOver}
-            onDrop={(event) => onDrop(event, status)}
+            onDragOver={canManage ? onDragOver : undefined}
+            onDrop={canManage ? (event) => onDrop(event, status) : undefined}
         >
             <div className="flex items-center justify-between mb-4">
                 <h3 className="font-bold text-foreground text-lg tracking-wider">
@@ -52,13 +64,35 @@ const ProjectTaskColumn: React.FC<ProjectTaskColumnProps> = ({ status, tasks, te
                 {tasks.map((task) => (
                     <motion.div
                         key={task.id}
-                        draggable
-                        onDragStart={() => onDragStart(task.id)}
-                        className="p-3 bg-card border border-border rounded-md shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
-                        whileHover={{ scale: 1.01 }}
-                        whileDrag={{ scale: 0.98, opacity: 0.8 }}
+                        draggable={canManage}
+                        onDragStart={() => {
+                            if (canManage) {
+                                onDragStart(task.id);
+                            }
+                        }}
+                        className={cn(
+                            "p-3 bg-card border border-border rounded-md shadow-sm transition-shadow",
+                            canManage ? "cursor-grab active:cursor-grabbing hover:shadow-md" : "cursor-default"
+                        )}
+                        whileHover={{ scale: canManage ? 1.01 : 1 }}
+                        whileDrag={canManage ? { scale: 0.98, opacity: 0.8 } : undefined}
                     >
-                        <p className="font-semibold text-foreground">{task.title}</p>
+                        <div className="flex items-start justify-between gap-2">
+                            <p className="font-semibold text-foreground">{task.title}</p>
+                            {canManage && (
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+                                        onDeleteTask(task.id);
+                                    }}
+                                >
+                                    <TrashIcon className="h-4 w-4" />
+                                </Button>
+                            )}
+                        </div>
                         <div className="mt-2 flex justify-between items-center">
                             <div className="flex items-center gap-2">
                                 {task.assignee ? (
@@ -73,22 +107,28 @@ const ProjectTaskColumn: React.FC<ProjectTaskColumnProps> = ({ status, tasks, te
                                         <AvatarFallback className="text-xs bg-muted">?</AvatarFallback>
                                     </Avatar>
                                 )}
-                                <Select
-                                    value={task.assignee?.id ?? 'unassigned'}
-                                    onValueChange={(value) => onAssign(task.id, value === 'unassigned' ? null : value)}
-                                >
-                                    <SelectTrigger className="h-auto text-xs border-none bg-transparent p-0 w-auto min-w-[80px]">
-                                        <SelectValue placeholder="Unassigned" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="unassigned">Unassigned</SelectItem>
-                                        {team.map((member) => (
-                                            <SelectItem key={member.id} value={member.id}>
-                                                {member.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                {canManage ? (
+                                    <Select
+                                        value={task.assignee?.id ?? 'unassigned'}
+                                        onValueChange={(value) => onAssign(task.id, value === 'unassigned' ? null : value)}
+                                    >
+                                        <SelectTrigger className="h-auto text-xs border-none bg-transparent p-0 w-auto min-w-[80px]">
+                                            <SelectValue placeholder="Unassigned" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="unassigned">Unassigned</SelectItem>
+                                            {team.map((member) => (
+                                                <SelectItem key={member.id} value={member.id}>
+                                                    {member.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                ) : (
+                                    <span className="text-xs text-muted-foreground">
+                                        {task.assignee ? `Assigned to ${task.assignee.name}` : 'Unassigned'}
+                                    </span>
+                                )}
                             </div>
                             {task.dueDate && (
                                 <Badge variant="outline" className="text-xs">
@@ -108,9 +148,10 @@ interface ProjectDetailProps {
     onBack: () => void;
     onUpdate: (projectId: string, updates: Partial<Project>) => Promise<void>;
     allMembers: TeamMember[];
+    onDeleteProject: (projectId: string) => Promise<void>;
 }
 
-const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate, allMembers }) => {
+const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate, allMembers, onDeleteProject }) => {
     const { user } = useAuth();
     const { sendInvite } = useProjectInvites(user?.uid);
     const { toast } = useToast();
@@ -129,6 +170,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
     const [selectedUserEmail, setSelectedUserEmail] = useState('');
     const [inviteRole, setInviteRole] = useState<ProjectRole>('member');
     const [inviteMessage, setInviteMessage] = useState('');
+    const [isDeleteProjectDialogOpen, setIsDeleteProjectDialogOpen] = useState(false);
+    const [isDeletingProject, setIsDeletingProject] = useState(false);
 
     const availableMembers = useMemo(
         () => allMembers.filter((member) => {
@@ -140,7 +183,11 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
         [allMembers, project.team]
     );
 
+    const canManageProject = user?.uid === (project.ownerId ?? user?.uid);
+    const canManageTasks = canManageProject || (Array.isArray(project.team) && project.team.some((member) => member.id === user?.uid));
+
     const handleTaskDrop = (event: React.DragEvent<HTMLDivElement>, status: TaskStatus) => {
+        if (!canManageTasks) return;
         event.preventDefault();
         if (draggedTaskId) {
             const updatedTasks = project.tasks.map((task) =>
@@ -152,6 +199,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
     };
 
     const handleAssignTask = (taskId: string, memberId: string | null) => {
+        if (!canManageTasks) return;
         const member = memberId ? project.team.find((teamMember) => teamMember.id === memberId) ?? null : null;
         const updatedTasks = project.tasks.map((task) => {
             if (task.id === taskId) {
@@ -181,7 +229,29 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
         });
     };
 
+    const handleDeleteTask = async (taskId: string) => {
+        if (!canManageTasks) return;
+        const currentTasks = Array.isArray(project.tasks) ? project.tasks : [];
+        const taskToDelete = currentTasks.find((task) => task.id === taskId);
+        const updatedTasks = currentTasks.filter((task) => task.id !== taskId);
+
+        try {
+            await onUpdate(project.id, { tasks: updatedTasks });
+            toast({
+                title: 'Task Deleted',
+                description: taskToDelete ? `Task "${taskToDelete.title}" has been removed.` : 'Task removed from project.',
+            });
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: error?.message ?? 'Failed to delete task.',
+            });
+        }
+    };
+
     const handleRemoveMember = (memberId: string) => {
+        if (!canManageProject) return;
         const member = project.team.find(m => m.id === memberId);
         const updatedTeam = project.team.filter((member) => member.id !== memberId);
         const updatedTasks = project.tasks.map((task) => {
@@ -207,8 +277,46 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
         });
     };
 
+    const handleConfirmDeleteProject = async () => {
+        if (!canManageProject) return;
+        if (!project?.id) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'Project not found. Please refresh and try again.',
+            });
+            return;
+        }
+
+        setIsDeletingProject(true);
+        try {
+            await onDeleteProject(project.id);
+            toast({
+                title: 'Project Deleted',
+                description: `"${project.name}" has been deleted successfully.`,
+            });
+            setIsDeleteProjectDialogOpen(false);
+            onBack();
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: error?.message ?? 'Failed to delete project.',
+            });
+        } finally {
+            setIsDeletingProject(false);
+        }
+    };
 
     const handleAddTask = async () => {
+        if (!canManageTasks) {
+            toast({
+                variant: 'destructive',
+                title: 'Insufficient Permissions',
+                description: 'Only project managers can add tasks.',
+            });
+            return;
+        }
         if (!newTaskTitle.trim()) {
             toast({
                 variant: 'destructive',
@@ -269,6 +377,14 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
     };
 
     const handleSendInvite = async () => {
+        if (!canManageProject) {
+            toast({
+                variant: 'destructive',
+                title: 'Insufficient Permissions',
+                description: 'Only project owners can invite new members.',
+            });
+            return;
+        }
         if (!selectedUserEmail.trim()) {
             toast({
                 variant: 'destructive',
@@ -537,6 +653,33 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            <Dialog open={isDeleteProjectDialogOpen} onOpenChange={setIsDeleteProjectDialogOpen}>
+                <DialogContent className="sm:max-w-[420px]">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg">Delete Project</DialogTitle>
+                        <DialogDescription>
+                            This action cannot be undone. This will permanently delete the project and all of its tasks.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setIsDeleteProjectDialogOpen(false)}
+                            disabled={isDeletingProject}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleConfirmDeleteProject}
+                            disabled={isDeletingProject}
+                        >
+                            {isDeletingProject ? 'Deleting...' : 'Delete Project'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         
             <motion.div
                 initial={fadeInUp.initial}
@@ -552,24 +695,46 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                 
                 <Card>
                     <CardHeader>
-                        <div className="flex justify-between items-start">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                             <div>
                                 <CardTitle className="text-3xl">{project.name}</CardTitle>
                                 <CardDescription className="mt-2 max-w-2xl">
                                     {project.description}
                                 </CardDescription>
                             </div>
-                            <Badge
-                                variant={
-                                    project.status === 'On Track'
-                                        ? 'default'
-                                        : project.status === 'At Risk'
-                                        ? 'destructive'
-                                        : 'secondary'
-                                }
-                            >
-                                {project.status}
-                            </Badge>
+                            <div className="flex flex-col items-end gap-3">
+                                <Badge
+                                    variant={
+                                        project.status === 'On Track'
+                                            ? 'default'
+                                            : project.status === 'At Risk'
+                                            ? 'destructive'
+                                            : 'secondary'
+                                    }
+                                >
+                                    {project.status}
+                                </Badge>
+                                {canManageProject && (
+                                    <div className="flex flex-wrap justify-end gap-2">
+                                        <Button
+                                            variant="outline"
+                                            className="gap-2"
+                                            onClick={() => setIsInviteModalOpen(true)}
+                                        >
+                                            <EnvelopeIcon className="h-4 w-4" />
+                                            Invite Member
+                                        </Button>
+                                        <Button
+                                            variant="destructive"
+                                            className="gap-2"
+                                            onClick={() => setIsDeleteProjectDialogOpen(true)}
+                                        >
+                                            <TrashIcon className="h-4 w-4" />
+                                            Delete Project
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -616,16 +781,18 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                             
                             <TabsContent value="tasks" className="mt-6">
                                 <div className="space-y-4">
-                                    <div className="flex justify-end">
-                                        <Dialog open={isAddTaskModalOpen} onOpenChange={setIsAddTaskModalOpen}>
-                                            <DialogTrigger asChild>
-                                                <Button className="gap-2">
-                                                    <PlusIcon className="h-4 w-4" />
-                                                    Add Task
-                                                </Button>
-                                            </DialogTrigger>
-                                        </Dialog>
-                                    </div>
+                                    {canManageTasks && (
+                                        <div className="flex justify-end">
+                                            <Dialog open={isAddTaskModalOpen} onOpenChange={setIsAddTaskModalOpen}>
+                                                <DialogTrigger asChild>
+                                                    <Button className="gap-2">
+                                                        <PlusIcon className="h-4 w-4" />
+                                                        Add Task
+                                                    </Button>
+                                                </DialogTrigger>
+                                            </Dialog>
+                                        </div>
+                                    )}
                                     <div className="flex gap-6">
                                         <ProjectTaskColumn
                                             status="todo"
@@ -635,6 +802,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                                             onDragOver={(event) => event.preventDefault()}
                                             onDrop={handleTaskDrop}
                                             onAssign={handleAssignTask}
+                                            onDeleteTask={handleDeleteTask}
+                                            canManage={canManageTasks}
                                         />
                                         <ProjectTaskColumn
                                             status="inprogress"
@@ -644,6 +813,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                                             onDragOver={(event) => event.preventDefault()}
                                             onDrop={handleTaskDrop}
                                             onAssign={handleAssignTask}
+                                            onDeleteTask={handleDeleteTask}
+                                            canManage={canManageTasks}
                                         />
                                         <ProjectTaskColumn
                                             status="done"
@@ -653,6 +824,8 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                                             onDragOver={(event) => event.preventDefault()}
                                             onDrop={handleTaskDrop}
                                             onAssign={handleAssignTask}
+                                            onDeleteTask={handleDeleteTask}
+                                            canManage={canManageTasks}
                                         />
                                     </div>
                                 </div>
@@ -660,46 +833,47 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                             
                             <TabsContent value="team" className="mt-0">
                                 <div className="space-y-4">
-                                    <div className="flex justify-end gap-2">
-                                        {availableMembers.length > 0 && (
-                                            <Button
-                                                variant="outline"
-                                                className="gap-2"
-                                                onClick={() => {
-                                                    // Add first available member to project
-                                                    const memberToAdd = availableMembers[0];
-                                                    const updatedTeam = [...project.team, memberToAdd];
-                                                    onUpdate(project.id, { team: updatedTeam }).then(() => {
-                                                        toast({
-                                                            title: 'Member Added',
-                                                            description: `${memberToAdd.name} has been added to the project.`,
+                                    {canManageProject && (
+                                        <div className="flex justify-end gap-2">
+                                            {availableMembers.length > 0 && (
+                                                <Button
+                                                    variant="outline"
+                                                    className="gap-2"
+                                                    onClick={() => {
+                                                        const memberToAdd = availableMembers[0];
+                                                        const updatedTeam = [...project.team, memberToAdd];
+                                                        onUpdate(project.id, { team: updatedTeam }).then(() => {
+                                                            toast({
+                                                                title: 'Member Added',
+                                                                description: `${memberToAdd.name} has been added to the project.`,
+                                                            });
                                                         });
-                                                    });
-                                                }}
-                                            >
-                                                <PlusIcon className="h-4 w-4" />
-                                                Add from Team ({availableMembers.length})
-                                            </Button>
-                                        )}
-                                        <Dialog open={isInviteModalOpen} onOpenChange={(open) => {
-                                            setIsInviteModalOpen(open);
-                                            if (!open) {
-                                                setInviteSearchTerm('');
-                                                setSelectedUserEmail('');
-                                                clearResults();
-                                            }
-                                        }}>
-                                            <DialogTrigger asChild>
-                                                <Button className="gap-2">
-                                                    <EnvelopeIcon className="h-4 w-4" />
-                                                    Invite New Member
+                                                    }}
+                                                >
+                                                    <PlusIcon className="h-4 w-4" />
+                                                    Add from Team ({availableMembers.length})
                                                 </Button>
-                                            </DialogTrigger>
-                                        </Dialog>
-                                    </div>
+                                            )}
+                                            <Dialog open={isInviteModalOpen} onOpenChange={(open) => {
+                                                setIsInviteModalOpen(open);
+                                                if (!open) {
+                                                    setInviteSearchTerm('');
+                                                    setSelectedUserEmail('');
+                                                    clearResults();
+                                                }
+                                            }}>
+                                                <DialogTrigger asChild>
+                                                    <Button className="gap-2">
+                                                        <EnvelopeIcon className="h-4 w-4" />
+                                                        Invite New Member
+                                                    </Button>
+                                                </DialogTrigger>
+                                            </Dialog>
+                                        </div>
+                                    )}
                                     
                                     {/* Available Team Members to Add */}
-                                    {availableMembers.length > 0 && (
+                                    {canManageProject && availableMembers.length > 0 && (
                                         <Card>
                                             <CardHeader>
                                                 <CardTitle className="text-sm font-medium text-muted-foreground">Available Team Members</CardTitle>
@@ -763,14 +937,16 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                                                                         <p className="text-sm text-muted-foreground">{member.role}</p>
                                                                     </div>
                                                                 </div>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() => handleRemoveMember(member.id)}
-                                                                    className="text-destructive hover:text-destructive"
-                                                                >
-                                                                    Remove
-                                                                </Button>
+                                                                {canManageProject && (
+                                                                    <Button
+                                                                        variant="ghost"
+                                                                        size="sm"
+                                                                        onClick={() => handleRemoveMember(member.id)}
+                                                                        className="text-destructive hover:text-destructive"
+                                                                    >
+                                                                        Remove
+                                                                    </Button>
+                                                                )}
                                                             </CardContent>
                                                         </Card>
                                                     ))
@@ -873,7 +1049,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
 
 const Projects: React.FC = () => {
     const { user } = useAuth();
-    const { projects, loading, createProject, updateProject } = useProjects(user?.uid);
+    const { projects, loading, createProject, updateProject, deleteProject } = useProjects(user?.uid);
     const { acceptedMembers } = useTeamMembers(user?.uid);
     const { toast } = useToast();
 
@@ -882,6 +1058,8 @@ const Projects: React.FC = () => {
     const [newProjectName, setNewProjectName] = useState('');
     const [newProjectDescription, setNewProjectDescription] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
+    const [projectPendingDelete, setProjectPendingDelete] = useState<Project | null>(null);
+    const [isListDeletingProject, setIsListDeletingProject] = useState(false);
 
     const selectedProject = useMemo(
         () => projects.find((project) => project.id === selectedProjectId) ?? null,
@@ -938,8 +1116,47 @@ const Projects: React.FC = () => {
         });
     };
 
+    const handleDeleteProject = async (projectId: string) => {
+        await deleteProject(projectId);
+    };
+
     const handleUpdateProject = async (projectId: string, updates: Partial<Project>) => {
         await updateProject(projectId, updates);
+    };
+
+    const confirmDeletePendingProject = async () => {
+        if (!projectPendingDelete || projectPendingDelete.ownerId !== user?.uid) {
+            if (projectPendingDelete && projectPendingDelete.ownerId !== user?.uid) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Insufficient Permissions',
+                    description: 'Only project owners can delete projects.',
+                });
+            }
+            setProjectPendingDelete(null);
+            return;
+        }
+
+        setIsListDeletingProject(true);
+        try {
+            await handleDeleteProject(projectPendingDelete.id);
+            toast({
+                title: 'Project Deleted',
+                description: `"${projectPendingDelete.name}" has been deleted successfully.`,
+            });
+            if (selectedProjectId === projectPendingDelete.id) {
+                setSelectedProjectId(null);
+            }
+            setProjectPendingDelete(null);
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: error?.message ?? 'Failed to delete project.',
+            });
+        } finally {
+            setIsListDeletingProject(false);
+        }
     };
 
     if (selectedProject) {
@@ -949,6 +1166,7 @@ const Projects: React.FC = () => {
                 allMembers={acceptedMembers}
                 onBack={() => setSelectedProjectId(null)}
                 onUpdate={handleUpdateProject}
+                onDeleteProject={handleDeleteProject}
             />
         );
     }
@@ -1025,20 +1243,35 @@ const Projects: React.FC = () => {
                                     onClick={() => setSelectedProjectId(project.id)}
                                 >
                                     <CardHeader>
-                                        <div className="flex justify-between items-start">
+                                        <div className="flex justify-between items-start gap-3">
                                             <CardTitle className="text-lg">{project.name}</CardTitle>
-                                            <Badge
-                                                variant={
-                                                    project.status === 'On Track'
-                                                        ? 'default'
-                                                        : project.status === 'At Risk'
-                                                        ? 'destructive'
-                                                        : 'secondary'
-                                                }
-                                                className="text-xs"
-                                            >
-                                                {project.status}
-                                            </Badge>
+                                            <div className="flex items-start gap-2">
+                                                <Badge
+                                                    variant={
+                                                        project.status === 'On Track'
+                                                            ? 'default'
+                                                            : project.status === 'At Risk'
+                                                            ? 'destructive'
+                                                            : 'secondary'
+                                                    }
+                                                    className="text-xs"
+                                                >
+                                                    {project.status}
+                                                </Badge>
+                                                {project.ownerId === user?.uid && (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="icon"
+                                                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
+                                                            setProjectPendingDelete(project);
+                                                        }}
+                                                    >
+                                                        <TrashIcon className="h-4 w-4" />
+                                                    </Button>
+                                                )}
+                                            </div>
                                         </div>
                                         <CardDescription className="mt-2 min-h-[40px]">
                                             {project.description || 'No description'}
@@ -1092,6 +1325,41 @@ const Projects: React.FC = () => {
                     )}
                 </motion.div>
             </motion.div>
+
+            <Dialog
+                open={Boolean(projectPendingDelete)}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setProjectPendingDelete(null);
+                        setIsListDeletingProject(false);
+                    }
+                }}
+            >
+                <DialogContent className="sm:max-w-[420px]">
+                    <DialogHeader>
+                        <DialogTitle className="text-lg">Delete Project</DialogTitle>
+                        <DialogDescription>
+                            This action cannot be undone. This will permanently delete the project and all related tasks.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => setProjectPendingDelete(null)}
+                            disabled={isListDeletingProject}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={confirmDeletePendingProject}
+                            disabled={isListDeletingProject}
+                        >
+                            {isListDeletingProject ? 'Deleting...' : 'Delete Project'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
                 <DialogContent className="sm:max-w-[500px]">

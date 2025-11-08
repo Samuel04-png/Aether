@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import Card from '../shared/Card';
 import { SparklesIcon } from '../shared/Icons';
 import { UserProfile } from '../../types';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface OnboardingProps {
     onComplete: (profile: { businessName: string; industry: string; goals: string[] }) => Promise<void> | void;
@@ -16,6 +17,8 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialProfile }) =
     const [goals, setGoals] = useState<string[]>(initialProfile?.goals ?? []);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    const { theme } = useTheme();
+    const logoSrc = theme === 'dark' ? '/aether-logo/Logo.png' : '/aether-logo/Logo_lightmode.png';
     
     const totalSteps = 3;
 
@@ -76,7 +79,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialProfile }) =
                             <div className="relative">
                                 <div className="absolute inset-0 bg-gradient-hero opacity-20 blur-2xl rounded-full"></div>
                                 <img 
-                                    src="/aether-logo/Logo.png" 
+                                    src={logoSrc}
                                     alt="Aether Logo" 
                                     className="h-20 w-auto drop-shadow-2xl relative z-10"
                                 />

@@ -25,7 +25,7 @@ import { useUserProfile } from '../hooks/useUserProfile';
 import { generateBusinessInsights } from '../services/geminiService';
 import { cn } from '@/lib/utils';
 
-const KpiCard: React.FC<{ title: string; value: string; change: string; changeType: 'increase' | 'decrease' }> = ({ title, value, change, changeType }) => {
+const KpiCard: React.FC<{ title: string; value: string; change: string; changeType: 'increase' | 'decrease' }> = React.memo(({ title, value, change, changeType }) => {
   const isIncrease = changeType === 'increase';
   return (
     <motion.div
@@ -49,7 +49,8 @@ const KpiCard: React.FC<{ title: string; value: string; change: string; changeTy
     </Card>
     </motion.div>
   );
-};
+});
+KpiCard.displayName = 'KpiCard';
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
@@ -62,7 +63,10 @@ const Dashboard: React.FC = () => {
   const { leads } = useLeads(user?.uid);
   const { profile } = useUserProfile(user?.uid);
   const { toast } = useToast();
-  const salesData = monthlySales.map((item) => ({ name: item.month, Sales: item.sales }));
+  const salesData = useMemo(
+    () => monthlySales.map((item) => ({ name: item.month, Sales: item.sales })),
+    [monthlySales],
+  );
   
   const [aiInsights, setAiInsights] = useState<Array<{ type: 'recommendation' | 'alert' | 'tip'; title: string; content: string }>>([]);
   const [insightsLoading, setInsightsLoading] = useState(false);

@@ -2,12 +2,19 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
+  getDocs,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  startAfter,
   updateDoc,
+  limit,
+  QueryDocumentSnapshot,
+  DocumentData,
+  Timestamp,
 } from 'firebase/firestore';
 import { Task, TaskStatus, TeamMember } from '../types';
 import { db } from '../services/firebase';
@@ -38,37 +45,57 @@ const cleanTaskData = (data: any): any => {
   return cleaned;
 };
 
+const normalizeTimestamp = (value: any): string | undefined => {
+  if (!value) return undefined;
+  if (typeof value === 'string') return value;
+  if (value instanceof Date) return value.toISOString();
+  if ((value as Timestamp)?.toDate) {
+    return (value as Timestamp).toDate().toISOString();
+  }
+  return undefined;
+};
+
+const TASKS_PAGE_SIZE = 20;
+
 export const useTasks = (userId?: string) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState<boolean>(Boolean(userId));
+  const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
+  const [hasMore, setHasMore] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const lastDocRef = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [, setLastDocInternal] = lastDocRef;
+  const lastDoc = lastDocRef[0];
 
   useEffect(() => {
     if (!userId) {
       setTasks([]);
       setLoading(false);
+      setHasMore(false);
+      setLastDocInternal(null);
       return;
     }
 
     const tasksCollection = collection(db, 'users', userId, 'tasks');
-    // Use onSnapshot without orderBy to avoid errors if createdAt doesn't exist
-    const unsubscribe = onSnapshot(
+    const baseQuery = query(
       tasksCollection,
+      orderBy('createdAt', 'desc'),
+      limit(TASKS_PAGE_SIZE),
+    );
+
+    const unsubscribe = onSnapshot(
+      baseQuery,
       (snapshot) => {
         const tasksData = snapshot.docs.map((document) => {
           const data = document.data() as Omit<Task, 'id'> & { id?: string };
           return {
             id: document.id,
             ...data,
+            createdAt: normalizeTimestamp((data as any).createdAt),
           };
         });
-        // Sort by createdAt if available, otherwise by id
-        tasksData.sort((a, b) => {
-          if (a.createdAt && b.createdAt) {
-            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-          }
-          return 0;
-        });
+        setLastDocInternal(snapshot.docs.length ? snapshot.docs[snapshot.docs.length - 1] : null);
+        setHasMore(snapshot.size === TASKS_PAGE_SIZE);
         setTasks(tasksData);
         setLoading(false);
         setError(null);
@@ -134,6 +161,57 @@ export const useTasks = (userId?: string) => {
     [userId],
   );
 
+  const deleteTask = useCallback(
+    async (taskId: string) => {
+      if (!userId) throw new Error('You must be signed in to delete tasks.');
+      const taskDoc = doc(db, 'users', userId, 'tasks', taskId);
+      await deleteDoc(taskDoc);
+    },
+    [userId],
+  );
+
+  const loadMoreTasks = useCallback(async () => {
+    if (!userId || !lastDoc) return;
+    setIsLoadingMore(true);
+    try {
+      const tasksCollection = collection(db, 'users', userId, 'tasks');
+      const nextQuery = query(
+        tasksCollection,
+        orderBy('createdAt', 'desc'),
+        startAfter(lastDoc),
+        limit(TASKS_PAGE_SIZE),
+      );
+      const snapshot = await getDocs(nextQuery);
+      setLastDocInternal(snapshot.docs.length ? snapshot.docs[snapshot.docs.length - 1] : null);
+      setHasMore(snapshot.size === TASKS_PAGE_SIZE);
+      if (!snapshot.empty) {
+        setTasks((prev) => {
+          const map = new Map(prev.map((task) => [task.id, task]));
+          snapshot.docs.forEach((document) => {
+            const data = document.data() as Omit<Task, 'id'> & { id?: string };
+            map.set(document.id, {
+              id: document.id,
+              ...data,
+              createdAt: normalizeTimestamp((data as any).createdAt),
+            });
+          });
+          const merged = Array.from(map.values());
+          merged.sort((a, b) => {
+            if (a.createdAt && b.createdAt) {
+              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            }
+            return 0;
+          });
+          return merged;
+        });
+      }
+    } catch (err: any) {
+      setError(err?.message ?? 'Unable to load more tasks.');
+    } finally {
+      setIsLoadingMore(false);
+    }
+  }, [userId, lastDoc]);
+
   const tasksByStatus = useMemo(() => ({
     todo: tasks.filter((task) => task.status === 'todo'),
     inprogress: tasks.filter((task) => task.status === 'inprogress'),
@@ -144,10 +222,14 @@ export const useTasks = (userId?: string) => {
     tasks,
     tasksByStatus,
     loading,
+    isLoadingMore,
+    hasMore,
     error,
     addTask,
     updateTaskStatus,
     assignTask,
+    deleteTask,
+    loadMoreTasks,
   };
 };
 

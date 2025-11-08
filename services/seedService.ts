@@ -7,8 +7,9 @@ import {
   setDoc,
   writeBatch,
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { auth, db } from './firebase';
 import { ChatMessage, Lead, Notification, Project, Task, TeamMember } from '../types';
+import { ensureUserDirectoryEntry } from './userDirectory';
 
 type KPI = {
   id: string;
@@ -51,14 +52,14 @@ const defaultTasks: Task[] = [
 ];
 
 const defaultLeads: Lead[] = [
-  { id: 'lead-1', name: 'Alex Johnson', company: 'Innovate Corp', email: 'alex.j@innovate.com', status: 'New', source: 'Website' },
-  { id: 'lead-2', name: 'Samantha Miller', company: 'Solutions Inc.', email: 's.miller@solutions.io', status: 'Contacted', source: 'LinkedIn' },
-  { id: 'lead-3', name: 'David Chen', company: 'Data Dynamics', email: 'd.chen@datadynamics.co', status: 'Qualified', source: 'Referral' },
-  { id: 'lead-4', name: 'Maria Garcia', company: 'Creative Minds', email: 'maria.g@creativeminds.art', status: 'New', source: 'HubSpot' },
-  { id: 'lead-5', name: 'James Brown', company: 'Tech Forward', email: 'j.brown@techforward.com', status: 'Lost', source: 'Website' },
+  { id: 'lead-1', name: 'Alex Johnson', company: 'Innovate Corp', email: 'alex.j@innovate.com', status: 'New', source: 'Website', archived: false },
+  { id: 'lead-2', name: 'Samantha Miller', company: 'Solutions Inc.', email: 's.miller@solutions.io', status: 'Contacted', source: 'LinkedIn', archived: false },
+  { id: 'lead-3', name: 'David Chen', company: 'Data Dynamics', email: 'd.chen@datadynamics.co', status: 'Qualified', source: 'Referral', archived: false },
+  { id: 'lead-4', name: 'Maria Garcia', company: 'Creative Minds', email: 'maria.g@creativeminds.art', status: 'New', source: 'HubSpot', archived: false },
+  { id: 'lead-5', name: 'James Brown', company: 'Tech Forward', email: 'j.brown@techforward.com', status: 'Lost', source: 'Website', archived: false },
 ];
 
-const defaultNotifications: Notification[] = [
+const defaultNotifications: Array<Omit<Notification, 'userId'>> = [
   { id: 'notif-1', text: 'Your website audit for aether.co is complete.', category: 'system', time: '5 minutes ago', read: false },
   { id: 'notif-2', text: 'John Smith assigned you a new task: "Fix login authentication bug".', category: 'tasks', time: '1 hour ago', read: false },
   { id: 'notif-3', text: 'AI Insight: Your social media engagement is up 12% this week. Consider posting more video content.', category: 'ai', time: '3 hours ago', read: false },
@@ -162,7 +163,7 @@ const defaultChannelMessages: ChatMessage[] = [
   },
 ];
 
-const seedCollection = async <T extends { id: string }>(path: string[], items: T[]) => {
+const seedCollection = async <T extends { id: string }>(path: [string, ...string[]], items: T[]) => {
   const collectionRef = collection(db, ...path);
   const snapshot = await getDocs(collectionRef);
   if (!snapshot.empty) {
@@ -187,7 +188,7 @@ const seedCollection = async <T extends { id: string }>(path: string[], items: T
 };
 
 const seedMessages = async (userId: string) => {
-  const messagesPath = ['users', userId, 'channels', 'general', 'messages'];
+  const messagesPath: [string, ...string[]] = ['users', userId, 'channels', 'general', 'messages'];
   await seedCollection(messagesPath, defaultChannelMessages);
 };
 
@@ -228,6 +229,11 @@ export const seedUserWorkspace = async (userId: string) => {
       });
     }
 
+    const currentUser = auth.currentUser;
+    if (currentUser && currentUser.uid === userId) {
+      await ensureUserDirectoryEntry(currentUser);
+    }
+
     // Optimize: Seed essential data first, then rest in parallel
     // Essential data (needed for immediate UI)
     await Promise.all([
@@ -236,11 +242,36 @@ export const seedUserWorkspace = async (userId: string) => {
     ]);
 
     // Non-essential data (can load in background)
+    const projectsWithOwnerMetadata = defaultProjects.map((project) => {
+      const teamArray = project.team ?? [];
+      const teamMemberIds = Array.from(
+        new Set<string>([
+          userId,
+          ...teamArray
+            .map((member) => member?.id)
+            .filter((memberId): memberId is string => Boolean(memberId)),
+        ]),
+      );
+
+      return {
+        ...project,
+        ownerId: userId,
+        createdBy: userId,
+        teamMemberIds,
+      };
+    });
+
     Promise.all([
       seedCollection(['users', userId, 'tasks'], defaultTasks),
       seedCollection(['users', userId, 'leads'], defaultLeads),
-      seedCollection(['users', userId, 'projects'], defaultProjects),
-      seedCollection(['users', userId, 'notifications'], defaultNotifications),
+      seedCollection(['users', userId, 'projects'], projectsWithOwnerMetadata),
+      seedCollection(
+        ['users', userId, 'notifications'],
+        defaultNotifications.map((notification) => ({
+          ...notification,
+          userId,
+        }))
+      ),
       seedMessages(userId),
       seedSocialStats(userId),
     ]).catch((error) => {

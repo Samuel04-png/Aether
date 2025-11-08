@@ -113,17 +113,21 @@ export const useProjectInvites = (userId?: string) => {
         const currentUserName = currentUserData?.displayName || currentUserData?.email || 'Someone';
         const currentUserEmail = currentUserData?.email || '';
 
-        // Find the invited user by email
-        const usersCollection = collection(db, 'users');
-        const userQuery = query(usersCollection, where('email', '==', invitedUserEmail));
-        const userSnapshot = await getDocs(userQuery);
+        // Find the invited user via the public directory
+        const directoryCollection = collection(db, 'userDirectory');
+        const directoryQuery = query(
+          directoryCollection,
+          where('emailLowercase', '==', invitedUserEmail.toLowerCase())
+        );
+        const directorySnapshot = await getDocs(directoryQuery);
 
-        if (userSnapshot.empty) {
-          throw new Error('User not found with that email address.');
+        if (directorySnapshot.empty) {
+          throw new Error('No user found with that email. Ask them to sign in first.');
         }
 
-        const invitedUserDoc = userSnapshot.docs[0];
-        const invitedUserId = invitedUserDoc.id;
+        const invitedDirectoryDoc = directorySnapshot.docs[0];
+        const invitedDirectoryData = invitedDirectoryDoc.data() as any;
+        const invitedUserId = invitedDirectoryDoc.id;
 
         // Check if an invite already exists
         const invitesCollection = collection(db, 'projectInvites');
@@ -147,7 +151,7 @@ export const useProjectInvites = (userId?: string) => {
           invitedByName: currentUserName,
           invitedByEmail: currentUserEmail,
           invitedUser: invitedUserId,
-          invitedUserEmail,
+          invitedUserEmail: (invitedDirectoryData?.email as string) ?? invitedUserEmail,
           role,
           status: 'pending',
           createdAt: new Date().toISOString(),
@@ -211,6 +215,8 @@ export const useProjectInvites = (userId?: string) => {
           const projectData = projectSnapshot.data();
           const currentTeam = projectData.team || [];
           const currentProjectMembers = projectData.projectMembers || [];
+          const existingTeamIds = projectData.teamMemberIds || [];
+          const ownerId = projectData.ownerId || inviteData.invitedBy;
 
           // Check if user is already in the team
           const isAlreadyMember = currentTeam.some((member: any) => member.id === userId);
@@ -230,9 +236,19 @@ export const useProjectInvites = (userId?: string) => {
               joinedAt: new Date().toISOString(),
             };
 
+            const updatedTeamMemberIds = Array.from(
+              new Set<string>([
+                ownerId,
+                ...existingTeamIds,
+                newMember.id,
+              ]),
+            );
+
             await updateDoc(projectDoc, {
               team: [...currentTeam, newMember],
               projectMembers: [...currentProjectMembers, newProjectMember],
+              teamMemberIds: updatedTeamMemberIds,
+              ownerId,
             });
           }
         }

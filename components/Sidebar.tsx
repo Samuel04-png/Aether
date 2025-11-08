@@ -17,6 +17,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion';
 import { slideLeft, staggerContainer, staggerItem, transitions, hoverLift } from '@/lib/motion';
 import { cn } from '@/lib/utils';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface SidebarProps {
   activeView: ViewType;
@@ -25,6 +26,8 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView }) => {
   const { user, signOutUser } = useAuth();
+  const { theme } = useTheme();
+  const logoSrc = theme === 'dark' ? '/aether-logo/Logo.png' : '/aether-logo/Logo_lightmode.png';
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -43,7 +46,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView }) => {
             className="flex items-center gap-3 px-4 py-6 mb-4 hover:opacity-90 transition-opacity cursor-pointer"
           >
             <img 
-              src="/aether-logo/Logo.png" 
+              src={logoSrc}
               alt="Aether Logo" 
               className="h-10 w-10 drop-shadow-lg flex-shrink-0"
             />

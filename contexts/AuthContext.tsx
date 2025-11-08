@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   User,
   onAuthStateChanged,
@@ -10,6 +10,7 @@ import {
   sendPasswordResetEmail,
 } from 'firebase/auth';
 import { auth, googleProvider } from '../services/firebase';
+import { ensureUserDirectoryEntry } from '../services/userDirectory';
 
 interface AuthContextValue {
   user: User | null;
@@ -26,6 +27,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [initializing, setInitializing] = useState(true);
+  const lastDirectorySignature = useRef<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -35,6 +37,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!user) {
+      lastDirectorySignature.current = null;
+      return;
+    }
+
+    const signature = JSON.stringify({
+      uid: user.uid,
+      displayName: user.displayName ?? null,
+      email: user.email ?? null,
+      photoURL: user.photoURL ?? null,
+      providers: user.providerData.map((provider) => provider.providerId).filter(Boolean),
+    });
+
+    if (lastDirectorySignature.current === signature) {
+      return;
+    }
+
+    lastDirectorySignature.current = signature;
+
+    ensureUserDirectoryEntry(user).catch((error) => {
+      console.error('Failed to ensure user directory entry', error);
+      lastDirectorySignature.current = null;
+    });
+  }, [user]);
 
   const value = useMemo<AuthContextValue>(() => ({
     user,

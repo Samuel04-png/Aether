@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
+import { collection, getDocs, limit, query, where } from 'firebase/firestore';
 import { db } from '../services/firebase';
 
 export interface SearchableUser {
@@ -24,64 +24,43 @@ export const useUserSearch = () => {
     setError(null);
 
     try {
-      const usersCollection = collection(db, 'users');
-      
-      // Search by email (exact match or contains)
-      const emailQuery = query(
-        usersCollection,
-        where('email', '>=', searchTerm.toLowerCase()),
-        where('email', '<=', searchTerm.toLowerCase() + '\uf8ff'),
-        limit(10)
-      );
+      const directoryCollection = collection(db, 'userDirectory');
+      const normalized = searchTerm.trim().toLowerCase();
+      const terms = Array.from(
+        new Set([
+          normalized,
+          ...normalized.split(/\s+/).filter(Boolean),
+        ]),
+      ).filter(Boolean);
 
-      // Search by displayName (contains)
-      // Note: Firestore doesn't support case-insensitive search natively
-      // This is a simple implementation - for production, consider using Algolia or similar
-      const nameQuery = query(
-        usersCollection,
-        orderBy('displayName'),
-        limit(10)
-      );
+      const resultMap = new Map<string, SearchableUser>();
 
-      const [emailResults, nameResults] = await Promise.all([
-        getDocs(emailQuery).catch(() => ({ docs: [] })),
-        getDocs(nameQuery).catch(() => ({ docs: [] })),
-      ]);
+      for (const term of terms) {
+        try {
+          const termQuery = query(
+            directoryCollection,
+            where('keywords', 'array-contains', term),
+            limit(10),
+          );
 
-      const allResults = new Map<string, SearchableUser>();
-
-      // Process email results
-      emailResults.docs.forEach((doc) => {
-        const data = doc.data();
-        allResults.set(doc.id, {
-          id: doc.id,
-          email: data.email || '',
-          displayName: data.displayName || data.email || '',
-          photoURL: data.photoURL,
-        });
-      });
-
-      // Process name results (filter client-side for contains)
-      nameResults.docs.forEach((doc) => {
-        const data = doc.data();
-        const displayName = (data.displayName || '').toLowerCase();
-        const email = (data.email || '').toLowerCase();
-        const searchLower = searchTerm.toLowerCase();
-
-        if (
-          displayName.includes(searchLower) ||
-          email.includes(searchLower)
-        ) {
-          allResults.set(doc.id, {
-            id: doc.id,
-            email: data.email || '',
-            displayName: data.displayName || data.email || '',
-            photoURL: data.photoURL,
+          const snapshot = await getDocs(termQuery);
+          snapshot.docs.forEach((docSnapshot) => {
+            const data = docSnapshot.data() as any;
+            const id = docSnapshot.id;
+            if (!id) return;
+            resultMap.set(id, {
+              id,
+              email: data.email || '',
+              displayName: data.displayName || data.email || '',
+              photoURL: data.photoURL,
+            });
           });
+        } catch (innerError) {
+          console.warn('User directory lookup failed for term', term, innerError);
         }
-      });
+      }
 
-      setSearchResults(Array.from(allResults.values()).slice(0, 10));
+      setSearchResults(Array.from(resultMap.values()).slice(0, 10));
     } catch (err: any) {
       console.error('Error searching users:', err);
       setError(err.message || 'Failed to search users');

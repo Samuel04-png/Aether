@@ -11,22 +11,17 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function: Check if user is authenticated
     function isSignedIn() {
       return request.auth != null;
     }
     
-    // Helper function: Check if user owns the resource
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
     
-    // User documents and all subcollections
     match /users/{userId} {
-      // Users can read and write their own user document
       allow read, write: if isOwner(userId);
       
-      // User subcollections - only owner can access
       match /profile/{profileId} {
         allow read, write: if isOwner(userId);
       }
@@ -36,7 +31,36 @@ service cloud.firestore {
       }
       
       match /projects/{projectId} {
-        allow read, write: if isOwner(userId);
+        function ownerId() {
+          return resource.data.ownerId != null ? resource.data.ownerId : userId;
+        }
+
+        allow read: if isSignedIn() && (
+          isOwner(userId) ||
+          (resource.data.teamMemberIds != null && request.auth.uid in resource.data.teamMemberIds)
+        );
+
+        allow create: if isOwner(userId) &&
+          request.resource.data.ownerId == request.auth.uid &&
+          request.resource.data.teamMemberIds != null &&
+          request.resource.data.teamMemberIds.size() > 0 &&
+          request.auth.uid in request.resource.data.teamMemberIds;
+
+        allow update: if
+          request.resource.data.ownerId == ownerId() &&
+          request.resource.data.teamMemberIds != null &&
+          request.resource.data.teamMemberIds.size() > 0 &&
+          ownerId() in request.resource.data.teamMemberIds &&
+          (
+            isOwner(userId) ||
+            (
+              resource.data.teamMemberIds != null &&
+              request.auth.uid in resource.data.teamMemberIds &&
+              request.resource.data.teamMemberIds == resource.data.teamMemberIds
+            )
+          );
+
+        allow delete: if isOwner(userId);
       }
       
       match /leads/{leadId} {
@@ -64,63 +88,54 @@ service cloud.firestore {
       }
     }
     
-    // Channels collection - member-based access
     match /channels/{channelId} {
-      // Read: User must be a member of the channel
-      allow read: if isSignedIn() && 
+      allow read: if isSignedIn() &&
         request.auth.uid in resource.data.members;
       
-      // Create: User must be authenticated and set themselves as creator
-      allow create: if isSignedIn() && 
+      allow create: if isSignedIn() &&
         request.auth.uid == request.resource.data.createdBy;
       
-      // Update: Creator or any member can update
       allow update: if isSignedIn() && (
         request.auth.uid == resource.data.createdBy ||
         request.auth.uid in resource.data.members
       );
       
-      // Delete: Only creator can delete
-      allow delete: if isSignedIn() && 
+      allow delete: if isSignedIn() &&
         request.auth.uid == resource.data.createdBy;
       
-      // Messages subcollection
       match /messages/{messageId} {
-        // Read: User must be a member of the parent channel
-        allow read: if isSignedIn() && 
+        allow read: if isSignedIn() &&
           request.auth.uid in get(/databases/$(database)/documents/channels/$(channelId)).data.members;
         
-        // Create: User must be authenticated and sender.id must match auth.uid
-        allow create: if isSignedIn() && 
+        allow create: if isSignedIn() &&
           request.auth.uid == request.resource.data.sender.id;
         
-        // Update/Delete: Only sender can modify their own messages
-        allow update, delete: if isSignedIn() && 
+        allow update, delete: if isSignedIn() &&
           request.auth.uid == resource.data.sender.id;
       }
     }
     
-    // Project invites collection
     match /projectInvites/{inviteId} {
-      // Read: Invited user or inviter can read
       allow read: if isSignedIn() && (
         request.auth.uid == resource.data.invitedBy ||
         request.auth.uid == resource.data.invitedUser
       );
       
-      // Create: User must be authenticated and set themselves as inviter
-      allow create: if isSignedIn() && 
+      allow create: if isSignedIn() &&
         request.auth.uid == request.resource.data.invitedBy;
       
-      // Update: Invited user or inviter can update (for accept/decline)
       allow update: if isSignedIn() && (
         request.auth.uid == resource.data.invitedUser ||
         request.auth.uid == resource.data.invitedBy
       );
       
-      // Delete: Only inviter can delete
-      allow delete: if isSignedIn() && 
+      allow delete: if isSignedIn() &&
         request.auth.uid == resource.data.invitedBy;
+    }
+
+    match /userDirectory/{directoryUserId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isOwner(directoryUserId);
     }
   }
 }
@@ -147,8 +162,9 @@ service cloud.firestore {
 
 ### User Data (`/users/{userId}`)
 - **Access**: Users can only read and write their own user document and all subcollections
+- **Projects**: Project owners have full control; collaborators listed in `teamMemberIds` can read and update task data but cannot modify the member list
 - **Subcollections**: `tasks`, `projects`, `leads`, `notifications`, `dashboard`, `teamMembers`, `profile`, `scheduledPosts`, `socialStats`
-- **Security**: Owner-only access using `isOwner()` helper function
+- **Security**: Owner-only access enforced via `isOwner()` helper with explicit project ownership checks
 
 ### Channels (`/channels/{channelId}`)
 - **Read**: Only members of the channel can read
@@ -163,6 +179,11 @@ service cloud.firestore {
 - **Update**: Invited user or inviter can update (for accept/decline actions)
 - **Delete**: Only inviter can delete the invite
 
+### User Directory (`/userDirectory/{userId}`)
+- **Purpose**: Lightweight directory to power member search without exposing private user records
+- **Read**: Any authenticated user can search directory entries
+- **Write**: Only the owner of the entry can create/update/delete their directory profile
+
 ## Testing the Rules
 
 After applying the rules, test the following:
@@ -170,6 +191,8 @@ After applying the rules, test the following:
 1. **User Data Access**:
    - ✅ Users can create/read/update/delete their own tasks
    - ✅ Users can create/read/update/delete their own projects
+   - ✅ Project collaborators listed in `teamMemberIds` can read projects and update task/status fields
+   - ❌ Collaborators cannot change project membership unless they are the owner
    - ✅ Users can create/read/update/delete their own leads
    - ✅ Users can read/update/delete their own notifications
    - ❌ Users cannot access other users' data
@@ -185,6 +208,10 @@ After applying the rules, test the following:
    - ✅ Invited users can read and respond to invites
    - ✅ Only inviter can delete invites
    - ❌ Other users cannot see invites they're not part of
+
+4. **User Directory**:
+   - ✅ Authenticated users can search directory entries
+   - ❌ Anonymous users cannot read directory data
 
 ## Troubleshooting
 

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { SparklesIcon, PlusIcon } from './shared/Icons';
+import { SparklesIcon, PlusIcon, TrashIcon } from './shared/Icons';
 import { Task, TaskStatus } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useTasks } from '../hooks/useTasks';
@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 
 type Column = { id: TaskStatus; title: string; tasks: Task[] };
 
-const TaskCard: React.FC<{ task: Task; onDragStart: (taskId: string) => void }> = ({ task, onDragStart }) => (
+const TaskCard: React.FC<{ task: Task; onDragStart: (taskId: string) => void; onDelete: (taskId: string) => void }> = ({ task, onDragStart, onDelete }) => (
   <motion.div
     draggable
     onDragStart={() => onDragStart(task.id)}
@@ -27,7 +27,20 @@ const TaskCard: React.FC<{ task: Task; onDragStart: (taskId: string) => void }> 
     whileHover={{ scale: 1.01 }}
     whileDrag={{ scale: 0.98, opacity: 0.8 }}
   >
-    <h4 className="font-semibold text-foreground">{task.title}</h4>
+    <div className="flex items-start justify-between gap-2">
+      <h4 className="font-semibold text-foreground">{task.title}</h4>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7 text-muted-foreground hover:text-destructive"
+        onClick={(event) => {
+          event.stopPropagation();
+          onDelete(task.id);
+        }}
+      >
+        <TrashIcon className="h-4 w-4" />
+      </Button>
+    </div>
     {task.description && <p className="text-sm text-muted-foreground mt-1">{task.description}</p>}
     {task.dueDate && (
       <Badge variant="outline" className="mt-2 text-xs">
@@ -39,7 +52,7 @@ const TaskCard: React.FC<{ task: Task; onDragStart: (taskId: string) => void }> 
 
 const Tasks: React.FC = () => {
     const { user } = useAuth();
-    const { tasks, tasksByStatus, loading, addTask, updateTaskStatus, assignTask } = useTasks(user?.uid);
+    const { tasks, tasksByStatus, loading, addTask, updateTaskStatus, assignTask, deleteTask } = useTasks(user?.uid);
     const { members } = useTeamMembers(user?.uid);
     const { toast } = useToast();
     const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
@@ -88,6 +101,23 @@ const Tasks: React.FC = () => {
                 description: error?.message ?? 'Failed to assign task',
             });
         });
+    };
+
+    const handleDeleteTask = async (taskId: string) => {
+        const taskToDelete = tasks.find((task) => task.id === taskId);
+        try {
+            await deleteTask(taskId);
+            toast({
+                title: 'Task Deleted',
+                description: taskToDelete ? `Task "${taskToDelete.title}" has been deleted.` : 'Task deleted.',
+            });
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: error?.message ?? 'Failed to delete task.',
+            });
+        }
     };
 
     const handleCreateTask = async () => {
@@ -389,7 +419,7 @@ const Tasks: React.FC = () => {
                     <p className="text-sm text-muted-foreground">Loading tasks...</p>
                   ) : tasksForColumn.length > 0 ? tasksForColumn.map(task => (
                     <div key={task.id}>
-                        <TaskCard task={task} onDragStart={handleDragStart} />
+                        <TaskCard task={task} onDragStart={handleDragStart} onDelete={handleDeleteTask} />
                         <div className="flex items-center gap-2 mt-2">
                             <Select
                               value={task.assignee?.id ?? 'unassigned'}
