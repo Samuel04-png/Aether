@@ -1,6 +1,19 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Card from './shared/Card';
-import { SparklesIcon, PlusIcon, CloseIcon, CsvIcon, CrmIcon, TrashIcon } from './shared/Icons';
+import {
+    SparklesIcon,
+    PlusIcon,
+    CloseIcon,
+    CsvIcon,
+    CrmIcon,
+    TrashIcon,
+    CalendarIcon,
+    EnvelopeIcon,
+    MessageIcon,
+    PhoneIcon,
+    FileIcon,
+    MoreIcon,
+} from './shared/Icons';
 import { SearchInput } from '@/components/ui/search-input';
 import { Button } from '@/components/ui/button';
 import { generatePersonalizedLeadMessage } from '../services/geminiService';
@@ -12,6 +25,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const AddLeadModal: React.FC<{ onClose: () => void; onAddLead: (lead: NewLeadInput) => Promise<void>; }> = ({ onClose, onAddLead }) => {
     const [view, setView] = useState<'options' | 'manual'>('options');
@@ -196,21 +217,24 @@ Just checking in—wanted to share a quick win from a client similar to ${lead.c
     };
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-            <Card className="w-full max-w-lg animate-slide-in-up">
-                <div className="flex justify-between items-start gap-3 mb-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in px-4">
+            <Card className="w-full max-w-2xl animate-slide-in-up shadow-2xl border border-border/70">
+                <div className="flex justify-between items-start gap-3 mb-6">
                     <div>
-                        <h3 className="text-2xl font-bold text-foreground">Message {lead.name}</h3>
-                        <p className="text-sm text-muted-foreground mt-1">Choose a channel and tailor the note before sending.</p>
+                        <span className="text-xs uppercase tracking-wide text-muted-foreground">Messaging Workspace</span>
+                        <h3 className="text-2xl font-bold text-foreground mt-1">Message {lead.name}</h3>
+                        <p className="text-sm text-muted-foreground mt-1">
+                            Draft and schedule personalised outreach in one place.
+                        </p>
                     </div>
                     <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
                         <CloseIcon />
                     </button>
                 </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-5">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Platform</label>
+                        <div className="space-y-2">
+                            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Platform</label>
                             <select
                                 value={platform}
                                 onChange={(event) => setPlatform(event.target.value as MessagePlatform)}
@@ -221,61 +245,68 @@ Just checking in—wanted to share a quick win from a client similar to ${lead.c
                                 <option value="sms">SMS (mock)</option>
                             </select>
                         </div>
-                        <div>
-                            <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Lead status</label>
+                        <div className="space-y-2">
+                            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lead status</label>
                             <div className="py-2 px-3 border border-border rounded-[var(--radius)] bg-input text-sm text-muted-foreground capitalize">
                                 {lead.status}
                             </div>
                         </div>
                     </div>
-                    <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1">Message</label>
-                        <textarea
+                    <div className="space-y-2">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Message</label>
+                        <Textarea
                             value={message}
                             onChange={(event) => setMessage(event.target.value)}
-                            className="w-full bg-input text-foreground rounded-[var(--radius)] py-2 px-3 focus:outline-none focus:ring-2 focus:ring-ring border border-border min-h-[160px] resize-none"
+                            className="w-full bg-input text-foreground rounded-[var(--radius)] py-2 px-3 focus:outline-none focus:ring-2 focus:ring-ring border border-border min-h-[160px]"
                         />
-                        {error && <p className="text-xs text-destructive mt-2">{error}</p>}
+                        {error && <p className="text-xs text-destructive mt-1">{error}</p>}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        <button
+                        <Button
                             type="button"
-                            className="text-xs font-semibold px-3 py-1 rounded-full border border-border hover:border-primary hover:text-primary transition-colors"
+                            variant="outline"
+                            size="sm"
                             onClick={() => applyTemplate('warm')}
                         >
                             Warm intro
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="button"
-                            className="text-xs font-semibold px-3 py-1 rounded-full border border-border hover:border-primary hover:text-primary transition-colors"
+                            variant="outline"
+                            size="sm"
                             onClick={() => applyTemplate('direct')}
                         >
                             Direct pitch
-                        </button>
-                        <button
+                        </Button>
+                        <Button
                             type="button"
-                            className="text-xs font-semibold px-3 py-1 rounded-full border border-border hover:border-primary hover:text-primary transition-colors"
+                            variant="outline"
+                            size="sm"
                             onClick={() => applyTemplate('follow-up')}
                         >
                             Follow-up
-                        </button>
+                        </Button>
                     </div>
-                    <div className="flex justify-end gap-3 border-t border-border pt-4">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="bg-secondary text-secondary-foreground font-semibold py-2 px-4 rounded-[var(--radius)] hover:bg-secondary/80 transition-colors shadow-sm"
-                            disabled={isSending}
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            className="bg-primary text-primary-foreground font-semibold py-2 px-4 rounded-[var(--radius)] hover:bg-primary/90 transition-colors shadow-sm disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
-                            disabled={isSending}
-                        >
-                            {isSending ? 'Sending…' : `Send via ${platform === 'email' ? 'Email' : platform === 'whatsapp' ? 'WhatsApp' : 'SMS'}`}
-                        </button>
+                    <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="text-xs text-muted-foreground">
+                            Message will be logged in the lead timeline once sent.
+                        </div>
+                        <div className="flex gap-3 justify-end">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={onClose}
+                                disabled={isSending}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={isSending}
+                            >
+                                {isSending ? 'Sending…' : `Send via ${platform === 'email' ? 'Email' : platform === 'whatsapp' ? 'WhatsApp' : 'SMS'}`}
+                            </Button>
+                        </div>
                     </div>
                 </form>
             </Card>
@@ -304,61 +335,60 @@ const EditLeadModal: React.FC<{
     };
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-            <Card className="w-full max-w-lg animate-slide-in-up">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="text-2xl font-bold text-foreground">Edit Lead</h3>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in px-4">
+            <Card className="w-full max-w-2xl animate-slide-in-up shadow-2xl border border-border/70">
+                <div className="flex justify-between items-center mb-6">
+                    <div>
+                        <span className="text-xs uppercase tracking-wide text-muted-foreground">Lead profile</span>
+                        <h3 className="text-2xl font-bold text-foreground mt-1">Edit {lead.name}</h3>
+                    </div>
                     <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
                         <CloseIcon />
                     </button>
                 </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-5">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-foreground mb-1">Full Name</label>
-                            <input
+                        <div className="space-y-2">
+                            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Full Name</label>
+                            <Input
                                 type="text"
                                 value={name}
                                 onChange={(event) => setName(event.target.value)}
-                                className="w-full bg-input text-foreground rounded-[var(--radius)] py-2 px-3 focus:outline-none focus:ring-2 focus:ring-ring border border-border"
                                 required
                             />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-foreground mb-1">Company</label>
-                            <input
+                        <div className="space-y-2">
+                            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Company</label>
+                            <Input
                                 type="text"
                                 value={company}
                                 onChange={(event) => setCompany(event.target.value)}
-                                className="w-full bg-input text-foreground rounded-[var(--radius)] py-2 px-3 focus:outline-none focus:ring-2 focus:ring-ring border border-border"
                                 required
                             />
                         </div>
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-foreground mb-1">Email</label>
-                            <input
+                        <div className="space-y-2">
+                            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email</label>
+                            <Input
                                 type="email"
                                 value={email}
                                 onChange={(event) => setEmail(event.target.value)}
-                                className="w-full bg-input text-foreground rounded-[var(--radius)] py-2 px-3 focus:outline-none focus:ring-2 focus:ring-ring border border-border"
                                 required
                             />
                         </div>
-                        <div>
-                            <label className="block text-sm font-medium text-foreground mb-1">Source</label>
-                            <input
+                        <div className="space-y-2">
+                            <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Source</label>
+                            <Input
                                 type="text"
                                 value={source}
                                 onChange={(event) => setSource(event.target.value)}
-                                className="w-full bg-input text-foreground rounded-[var(--radius)] py-2 px-3 focus:outline-none focus:ring-2 focus:ring-ring border border-border"
                                 required
                             />
                         </div>
                     </div>
-                    <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Status</label>
+                    <div className="space-y-2">
+                        <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</label>
                         <select
                             value={status}
                             onChange={(event) => setStatus(event.target.value as Lead['status'])}
@@ -371,32 +401,32 @@ const EditLeadModal: React.FC<{
                         </select>
                     </div>
                     {error && <p className="text-sm text-destructive">{error}</p>}
-                    <div className="flex justify-between items-center border-t border-border pt-4">
-                        <button
+                    <div className="flex flex-col gap-3 border-t border-border/70 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                        <Button
                             type="button"
-                            className="flex items-center gap-2 text-sm text-destructive hover:text-destructive/80 transition-colors"
+                            variant="ghost"
+                            className="justify-start gap-2 text-destructive hover:text-destructive/80"
                             onClick={onArchive}
                             disabled={isArchiving}
                         >
                             <TrashIcon className="w-4 h-4" />
                             {isArchiving ? 'Archiving…' : 'Archive lead'}
-                        </button>
-                        <div className="flex gap-3">
-                            <button
+                        </Button>
+                        <div className="flex gap-3 justify-end">
+                            <Button
                                 type="button"
+                                variant="outline"
                                 onClick={onClose}
-                                className="bg-secondary text-secondary-foreground font-semibold py-2 px-4 rounded-[var(--radius)] hover:bg-secondary/80 transition-colors shadow-sm"
                                 disabled={isSaving || isArchiving}
                             >
                                 Cancel
-                            </button>
-                            <button
+                            </Button>
+                            <Button
                                 type="submit"
-                                className="bg-primary text-primary-foreground font-semibold py-2 px-4 rounded-[var(--radius)] hover:bg-primary/90 transition-colors shadow-sm disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
                                 disabled={isSaving || isArchiving}
                             >
                                 {isSaving ? 'Saving…' : 'Save Changes'}
-                            </button>
+                            </Button>
                         </div>
                     </div>
                 </form>
@@ -431,6 +461,8 @@ const Leads: React.FC = () => {
         officeHours: 'Mon–Fri · 9:00am – 5:00pm',
         playbook: '',
     });
+    const [configTab, setConfigTab] = useState<'contact' | 'scheduling' | 'playbook'>('contact');
+    const [showWorkflowSummary, setShowWorkflowSummary] = useState(false);
 
     useEffect(() => {
         setAutomationForm({
@@ -478,15 +510,108 @@ const Leads: React.FC = () => {
         };
     }, [leads]);
 
-    const automationChannels = useMemo(
+    const automationControls = useMemo(
         () => [
-            { id: 'sms' as const, label: 'SMS Replies', description: 'Send instant text responses with lead-specific merge tags.' },
-            { id: 'voice' as const, label: 'Call Routing', description: 'Route missed calls to voicemail transcription and callback queue.' },
-            { id: 'invoices' as const, label: 'Invoices & Quotes', description: 'Auto-generate branded invoices and sales quotations.' },
-            { id: 'appointments' as const, label: 'Appointment Booking', description: 'Share scheduling links and coordinate follow-ups automatically.' },
+            {
+                id: 'sms' as const,
+                label: 'SMS replies',
+                description: 'Instant text responses with personalised merge tags.',
+                icon: MessageIcon,
+                accent: 'text-primary',
+                accentBg: 'bg-primary/10',
+            },
+            {
+                id: 'voice' as const,
+                label: 'Call routing',
+                description: 'Smart voicemail transcription and callback queue.',
+                icon: PhoneIcon,
+                accent: 'text-orange-500',
+                accentBg: 'bg-orange-500/10',
+            },
+            {
+                id: 'invoices' as const,
+                label: 'Invoices & quotes',
+                description: 'Auto-generate branded billing documents.',
+                icon: FileIcon,
+                accent: 'text-emerald-500',
+                accentBg: 'bg-emerald-500/10',
+            },
+            {
+                id: 'appointments' as const,
+                label: 'Appointment booking',
+                description: 'Offer meeting slots and sync confirmed demos.',
+                icon: CalendarIcon,
+                accent: 'text-indigo-500',
+                accentBg: 'bg-indigo-500/10',
+            },
         ],
         [],
     );
+
+    const statusSummary = useMemo(
+        () => [
+            { label: 'New', count: pipelineStats.newCount },
+            { label: 'Contacted', count: pipelineStats.contactedCount },
+            { label: 'Qualified', count: pipelineStats.qualifiedCount },
+            { label: 'Lost', count: pipelineStats.lostCount },
+        ],
+        [pipelineStats],
+    );
+
+    const statusAccentColors: Record<Lead['status'], string> = {
+        New: '#1a73e8',
+        Contacted: '#f97316',
+        Qualified: '#10b981',
+        Lost: '#94a3b8',
+    };
+
+    const buildRingStyle = (color: string, value: number): React.CSSProperties => {
+        const safeValue = Math.max(0, Math.min(100, Math.round(value)));
+        return {
+            background: `conic-gradient(${color} ${safeValue}%, rgba(148,163,184,0.2) ${safeValue}% 100%)`,
+        };
+    };
+
+    const responseRatePercent = pipelineStats.respondRate ?? 0;
+    const conversionRatePercent = pipelineStats.conversionRate ?? 0;
+    const responseRingStyle = buildRingStyle('#1a73e8', responseRatePercent);
+    const conversionRingStyle = buildRingStyle('#10b981', conversionRatePercent);
+    const activeAutomationChannels = Object.entries(automationSettings.channels ?? {})
+        .filter(([, enabled]) => Boolean(enabled))
+        .map(([key]) => key.toUpperCase());
+    const automationStatusLabel = automationSettings.enabled ? 'Running' : 'Paused';
+
+    const pipelineStages = useMemo(
+        () => [
+            { label: 'New', count: pipelineStats.newCount, barGradient: 'from-primary/80 via-primary/60 to-primary/30', accent: 'text-primary' },
+            { label: 'Contacted', count: pipelineStats.contactedCount, barGradient: 'from-orange-500/80 via-orange-400/60 to-orange-300/30', accent: 'text-orange-500' },
+            { label: 'Qualified', count: pipelineStats.qualifiedCount, barGradient: 'from-emerald-500/80 via-emerald-400/60 to-emerald-300/30', accent: 'text-emerald-500' },
+            { label: 'Lost', count: pipelineStats.lostCount, barGradient: 'from-slate-500/70 via-slate-400/50 to-slate-300/20', accent: 'text-slate-500' },
+        ],
+        [pipelineStats],
+    );
+
+    const emptyWorkspaceCopy = useMemo(
+        () => ({
+            title: 'No lead active',
+            description: 'Pick a lead from the pipeline or create a new one to unlock personalized outreach, AI research, and messaging.',
+        }),
+        [],
+    );
+
+    const nextFollowUps = useMemo(() => {
+        if (!leads.length) return [];
+        const priorityOrder: Record<Lead['status'], number> = {
+            New: 0,
+            Contacted: 1,
+            Qualified: 2,
+            Lost: 3,
+        };
+        return [...leads]
+            .filter((lead) => lead.status !== 'Lost')
+            .sort((a, b) => priorityOrder[a.status] - priorityOrder[b.status])
+            .slice(0, 4);
+    }, [leads]);
 
     const handleAutomationSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -511,10 +636,11 @@ const Leads: React.FC = () => {
 
     const handleChannelToggle = async (channel: keyof typeof automationSettings.channels) => {
         const current = automationSettings.channels?.[channel];
+        const previousChannels = automationSettings.channels ?? {};
         try {
             await saveAutomationSettings({
                 channels: {
-                    ...automationSettings.channels,
+                    ...previousChannels,
                     [channel]: !current,
                 },
             });
@@ -678,98 +804,206 @@ const Leads: React.FC = () => {
                     error={editError}
                 />
             )}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                        <Card className="xl:col-span-1 bg-gradient-to-br from-primary/15 via-primary/5 to-background border border-primary/20 shadow-md">
-                            <div className="flex items-start justify-between gap-3">
+            <div className="space-y-8">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="space-y-2">
+                        <h1 className="text-3xl font-bold text-foreground">Leads & Sales Automation</h1>
+                        <p className="text-sm text-muted-foreground max-w-2xl">
+                            Track every prospect, keep momentum with AI assistance, and orchestrate 8×8 automations without leaving Aether.
+                        </p>
+                    </div>
+                    <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-3">
+                        <SearchInput
+                            placeholder="Search leads..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            containerClassName="w-full sm:w-64"
+                        />
+                        <Button onClick={() => setIsAddModalOpen(true)} className="gap-2">
+                            <PlusIcon className="h-4 w-4" /> Add lead
+                        </Button>
+                    </div>
+                </div>
+
+                <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)_360px]">
+                    <div className="space-y-6">
+                        <Card className="border border-border/60 shadow-sm">
+                            <div className="space-y-4">
                                 <div>
-                                    <Badge variant="outline" className="border-primary/40 text-primary bg-primary/10 mb-3">
-                                        Pipeline Overview
-                                    </Badge>
-                                    <h2 className="text-xl font-semibold text-foreground">Lead Health</h2>
-                                    <p className="text-xs text-muted-foreground mt-1">
-                                        Respond rate and conversion metrics update in real time as you manage leads.
-                                    </p>
+                                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Snapshot</p>
+                                    <h2 className="text-xl font-semibold text-foreground">Pipeline at a glance</h2>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-3xl font-bold text-primary">{pipelineStats.total}</p>
-                                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Total Leads</p>
-                                </div>
-                            </div>
-                            <div className="mt-6 space-y-4">
-                                {[
-                                    { label: 'New', count: pipelineStats.newCount, tone: 'text-primary' },
-                                    { label: 'Contacted', count: pipelineStats.contactedCount, tone: 'text-blue-500' },
-                                    { label: 'Qualified', count: pipelineStats.qualifiedCount, tone: 'text-emerald-500' },
-                                ].map((stage) => {
-                                    const percent = pipelineStats.total > 0 ? Math.round((stage.count / pipelineStats.total) * 100) : 0;
-                                    return (
-                                        <div key={stage.label}>
-                                            <div className="flex justify-between text-xs font-semibold text-muted-foreground uppercase">
-                                                <span>{stage.label}</span>
-                                                <span>{stage.count} · {percent}%</span>
-                                            </div>
-                                            <div className="w-full h-2 rounded-full bg-background border border-border/50 overflow-hidden mt-1">
-                                                <div
-                                                    className={`h-full ${stage.tone} bg-current rounded-full transition-all`}
-                                                    style={{ width: `${percent}%` }}
-                                                />
-                                            </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {[
+                                        {
+                                            label: 'Active leads',
+                                            value: pipelineStats.total,
+                                            caption: 'Total in funnel',
+                                            highlight: 'border-primary/30 bg-primary/10 text-primary',
+                                        },
+                                        {
+                                            label: 'New',
+                                            value: pipelineStats.newCount,
+                                            caption: 'Awaiting first touch',
+                                            highlight: 'border-blue-500/20 bg-blue-500/10 text-blue-500',
+                                        },
+                                        {
+                                            label: 'Contacted',
+                                            value: pipelineStats.contactedCount,
+                                            caption: 'In conversation',
+                                            highlight: 'border-orange-500/20 bg-orange-500/10 text-orange-500',
+                                        },
+                                        {
+                                            label: 'Qualified',
+                                            value: pipelineStats.qualifiedCount,
+                                            caption: 'Sales ready',
+                                            highlight: 'border-emerald-500/20 bg-emerald-500/10 text-emerald-500',
+                                        },
+                                    ].map((metric) => (
+                                        <div
+                                            key={metric.label}
+                                            className={`rounded-2xl border ${metric.highlight} p-4 transition`}
+                                        >
+                                            <p className="text-xs uppercase tracking-wide text-muted-foreground">{metric.label}</p>
+                                            <p className="mt-2 text-3xl font-semibold text-foreground">{metric.value}</p>
+                                            <p className="text-xs text-muted-foreground">{metric.caption}</p>
                                         </div>
-                                    );
-                                })}
-                            </div>
-                            <div className="mt-6 grid grid-cols-2 gap-4">
-                                <div className="rounded-xl bg-background/60 border border-border/60 p-3">
-                                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Response rate</p>
-                                    <p className="text-xl font-semibold text-foreground">{pipelineStats.respondRate}%</p>
-                                </div>
-                                <div className="rounded-xl bg-background/60 border border-border/60 p-3">
-                                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Conversion</p>
-                                    <p className="text-xl font-semibold text-foreground">{pipelineStats.conversionRate}%</p>
+                                    ))}
                                 </div>
                             </div>
                         </Card>
 
-                        <Card className="xl:col-span-2 border-border/80 shadow-md">
-                            <div className="flex flex-col lg:flex-row gap-4 lg:items-center lg:justify-between">
+                        <Card className="border border-border/60 shadow-sm">
+                            <div className="flex items-center justify-between">
                                 <div>
-                                    <Badge variant={automationSettings.enabled ? 'default' : 'outline'} className="mb-2">
-                                        {automationSettings.enabled ? 'Active automations' : 'Draft configuration'}
-                                    </Badge>
-                                    <h2 className="text-xl font-semibold text-foreground">Sales Automation Suite</h2>
-                                    <p className="text-sm text-muted-foreground max-w-xl">
-                                        Connect Aether’s AI concierge to reply to SMS, triage calls, prepare invoices & quotations, and slot demos automatically.
-                                    </p>
+                                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Funnel</p>
+                                    <h3 className="text-lg font-semibold text-foreground">Stage breakdown</h3>
                                 </div>
-                                <div className="flex flex-col items-end gap-2">
-                                    {automationUpdatedAt && (
-                                        <p className="text-xs text-muted-foreground">Updated {automationUpdatedAt}</p>
-                                    )}
-                                    <Button
-                                        variant={automationSettings.enabled ? 'outline' : 'default'}
-                                        onClick={handleAutomationToggle}
-                                        disabled={automationLoading || automationSaving}
-                                        className="min-w-[160px]"
-                                    >
-                                        {automationSettings.enabled ? 'Pause automations' : 'Enable automations'}
-                                    </Button>
+                                <div className="text-right">
+                                    <p className="text-xs text-muted-foreground uppercase tracking-wide">Conversion</p>
+                                    <p className="text-lg font-semibold text-foreground">{conversionRatePercent}%</p>
                                 </div>
                             </div>
+                            <div className="mt-6 h-48 flex items-end gap-4">
+                                {pipelineStages.map((stage) => {
+                                    const percent = pipelineStats.total > 0 ? Math.round((stage.count / pipelineStats.total) * 100) : 0;
+                                    const height = pipelineStats.total > 0 ? Math.max(12, percent) : 8;
+                                    return (
+                                        <div key={stage.label} className="flex-1 flex flex-col items-center gap-2">
+                                            <span className="text-sm font-semibold text-foreground">{stage.count}</span>
+                                            <div className="relative w-full max-w-[72px] flex-1 rounded-b-3xl border border-border/60 bg-muted/30 overflow-hidden">
+                                                <div
+                                                    className={`absolute inset-x-1 bottom-1 rounded-b-3xl bg-gradient-to-t ${stage.barGradient}`}
+                                                    style={{ height: `${height}%` }}
+                                                />
+                                            </div>
+                                            <span className="text-xs uppercase tracking-wide text-muted-foreground">{stage.label}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </Card>
 
-                            <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <Card className="border border-border/60 shadow-sm">
+                            <div>
+                                <p className="text-xs uppercase tracking-wide text-muted-foreground">Performance</p>
+                                <h3 className="text-lg font-semibold text-foreground">Response & conversion</h3>
+                            </div>
+                            <div className="mt-6 grid grid-cols-2 gap-4">
+                                {[
+                                    {
+                                        label: 'Response rate',
+                                        value: `${responseRatePercent}%`,
+                                        caption: 'Touches answered within SLA',
+                                        style: responseRingStyle,
+                                        accent: 'text-primary',
+                                    },
+                                    {
+                                        label: 'Conversion rate',
+                                        value: `${conversionRatePercent}%`,
+                                        caption: 'Leads moved to Qualified',
+                                        style: conversionRingStyle,
+                                        accent: 'text-emerald-500',
+                                    },
+                                ].map((metric) => (
+                                    <div key={metric.label} className="flex flex-col items-center gap-3">
+                                        <div className="relative h-24 w-24 rounded-full bg-muted/40" style={metric.style}>
+                                            <div className="absolute inset-2 rounded-full bg-card/90 shadow-inner flex items-center justify-center text-lg font-semibold text-foreground">
+                                                {metric.value}
+                                            </div>
+                                        </div>
+                                        <div className="text-center space-y-1">
+                                            <p className={`text-sm font-semibold ${metric.accent}`}>{metric.label}</p>
+                                            <p className="text-xs text-muted-foreground">{metric.caption}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </Card>
+                    </div>
+
+                    <div className="space-y-6">
+                        <Card className="border border-white/10 bg-white/5 shadow-xl backdrop-blur-2xl overflow-hidden">
+                            <div className="space-y-4 px-6 py-5">
+                                <div className="flex flex-col gap-3">
+                                    <div className="flex flex-col gap-2">
+                                        <h2 className="text-2xl font-semibold text-foreground">Sales Automation Suite</h2>
+                                        <p className="text-sm text-muted-foreground max-w-2xl">
+                                            Activate 8×8-powered workflows to respond instantly, route calls intelligently, and keep billing steps handled before a rep steps in.
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                            <span className={`rounded-full px-3 py-1 font-semibold ${automationSettings.enabled ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-600'}`}>
+                                                {automationStatusLabel}
+                                            </span>
+                                            <span>{automationUpdatedAt ? `Updated ${automationUpdatedAt}` : 'Not yet configured'}</span>
+                                            {activeAutomationChannels.length > 0 && (
+                                                <span className="hidden sm:inline">· {activeAutomationChannels.join(', ')}</span>
+                                            )}
+                                        </div>
+                                        <Button
+                                            variant="default"
+                                            onClick={handleAutomationToggle}
+                                            disabled={automationLoading || automationSaving}
+                                            className="min-w-[200px]"
+                                        >
+                                            {automationSettings.enabled ? 'Pause automations' : 'Enable automations'}
+                                        </Button>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowWorkflowSummary((prev) => !prev)}
+                                        className="text-xs font-medium text-primary hover:text-primary/80 transition flex items-center gap-2 w-fit"
+                                    >
+                                        {showWorkflowSummary ? 'Hide workflow summary' : 'Show workflow summary'}
+                                    </button>
+                                    {showWorkflowSummary && (
+                                        <div className="rounded-2xl border border-border/60 bg-card/60 p-4 space-y-2 text-sm text-muted-foreground">
+                                            <p>• Auto-reply to SMS with personalised responses and route hot leads to reps.</p>
+                                            <p>• Summarise missed calls and queue callbacks with voicemail transcription.</p>
+                                            <p>• Draft invoices and quotes and email them from your billing inbox on approval.</p>
+                                            <p>• Offer appointment slots via your connected calendar and sync confirmations.</p>
+                                        </div>
+                                    )}
+                                </div>
+
                                 {automationLoading ? (
-                                    <div className="col-span-2 space-y-4">
-                                        <div className="h-12 bg-muted rounded-xl animate-pulse" />
-                                        <div className="h-12 bg-muted rounded-xl animate-pulse" />
-                                        <div className="h-24 bg-muted rounded-xl animate-pulse" />
+                                    <div className="space-y-3">
+                                        <div className="h-12 rounded-xl bg-muted animate-pulse" />
+                                        <div className="h-12 rounded-xl bg-muted animate-pulse" />
+                                        <div className="h-24 rounded-xl bg-muted animate-pulse" />
                                     </div>
                                 ) : (
-                                    <>
-                                        <form className="space-y-4" onSubmit={handleAutomationSubmit}>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div>
+                                    <form onSubmit={handleAutomationSubmit} className="space-y-6">
+                                        <Tabs value={configTab} onValueChange={(value) => setConfigTab(value as typeof configTab)} className="w-full">
+                                            <TabsList className="grid grid-cols-3 w-full">
+                                                <TabsTrigger value="contact">Contact</TabsTrigger>
+                                                <TabsTrigger value="scheduling">Scheduling</TabsTrigger>
+                                                <TabsTrigger value="playbook">AI Playbook</TabsTrigger>
+                                            </TabsList>
+                                            <TabsContent value="contact" className="mt-4 space-y-4">
+                                                <div className="space-y-2">
                                                     <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Business phone</label>
                                                     <Input
                                                         value={automationForm.businessPhone}
@@ -779,7 +1013,7 @@ const Leads: React.FC = () => {
                                                         placeholder="+1 (555) 000-1234"
                                                     />
                                                 </div>
-                                                <div>
+                                                <div className="space-y-2">
                                                     <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Invoice email</label>
                                                     <Input
                                                         type="email"
@@ -790,7 +1024,9 @@ const Leads: React.FC = () => {
                                                         placeholder="billing@yourcompany.com"
                                                     />
                                                 </div>
-                                                <div>
+                                            </TabsContent>
+                                            <TabsContent value="scheduling" className="mt-4 space-y-4">
+                                                <div className="space-y-2">
                                                     <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Calendar link</label>
                                                     <Input
                                                         value={automationForm.calendarLink}
@@ -800,283 +1036,363 @@ const Leads: React.FC = () => {
                                                         placeholder="https://cal.com/your-team"
                                                     />
                                                 </div>
-                                                <div>
+                                                <div className="space-y-2">
                                                     <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Office hours</label>
                                                     <Input
                                                         value={automationForm.officeHours}
                                                         onChange={(event) =>
                                                             setAutomationForm((prev) => ({ ...prev, officeHours: event.target.value }))
                                                         }
+                                                        placeholder="Mon–Fri · 9:00am – 5:00pm"
                                                     />
                                                 </div>
-                                            </div>
-                                            <div>
-                                                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Personalised playbook notes</label>
+                                            </TabsContent>
+                                            <TabsContent value="playbook" className="mt-4 space-y-2">
+                                                <label className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">AI playbook notes</label>
                                                 <Textarea
                                                     value={automationForm.playbook}
                                                     onChange={(event) =>
                                                         setAutomationForm((prev) => ({ ...prev, playbook: event.target.value }))
                                                     }
-                                                    placeholder="Add custom greetings, billing instructions, or internal routing notes..."
-                                                    className="min-h-[120px]"
+                                                    placeholder="Add greetings, objection handling tips, or billing instructions for the AI assistant..."
+                                                    className="min-h-[140px]"
                                                 />
-                                            </div>
-                                            <div className="flex justify-end">
-                                                <Button
-                                                    type="submit"
-                                                    disabled={automationSaving}
-                                                >
-                                                    {automationSaving ? 'Saving…' : 'Save automation settings'}
-                                                </Button>
-                                            </div>
-                                        </form>
-                                        <div className="space-y-4">
-                                            <div className="grid grid-cols-1 gap-3">
-                                                {automationChannels.map((channel) => {
-                                                    const active = automationSettings.channels?.[channel.id];
-                                                    return (
-                                                        <Button
-                                                            key={channel.id}
-                                                            type="button"
-                                                            variant={active ? 'default' : 'outline'}
-                                                            className="justify-start gap-3"
-                                                            onClick={() => handleChannelToggle(channel.id)}
-                                                            disabled={automationSaving}
-                                                        >
-                                                            <span className="text-left">
-                                                                <span className="block text-sm font-semibold text-foreground">{channel.label}</span>
-                                                                <span className="block text-xs text-foreground/70">{channel.description}</span>
-                                                            </span>
-                                                            <Badge variant={active ? 'outline' : 'secondary'} className="ml-auto">
-                                                                {active ? 'Active' : 'Off'}
-                                                            </Badge>
-                                                        </Button>
-                                                    );
-                                                })}
-                                            </div>
-                                            <div className="rounded-xl border border-border/60 p-4 bg-muted/30 space-y-2">
-                                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Automation workflow</p>
-                                                <ul className="space-y-2 text-sm text-muted-foreground">
-                                                    <li>• Auto-reply to SMS with personalised responses and next steps.</li>
-                                                    <li>• Route unanswered calls to voicemail summaries for reps.</li>
-                                                    <li>• Draft invoices and quotes synced to your billing inbox.</li>
-                                                    <li>• Offer appointment slots via your connected calendar.</li>
-                                                </ul>
-                                            </div>
+                                            </TabsContent>
+                                        </Tabs>
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                            <p className="text-xs text-muted-foreground">
+                                                Configuration saves instantly and applies across every connected channel.
+                                            </p>
+                                            <Button type="submit" disabled={automationSaving}>
+                                                {automationSaving ? 'Saving…' : 'Save configuration'}
+                                            </Button>
                                         </div>
-                                    </>
+                                    </form>
                                 )}
+                            </div>
+                        </Card>
+
+                        <Card className="border border-border/60 shadow-sm">
+                            <div className="flex items-center justify-between mb-4">
+                                <div>
+                                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Automation controls</p>
+                                    <h3 className="text-lg font-semibold text-foreground">Quick configuration & overrides</h3>
+                                </div>
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                {automationControls.map((control) => {
+                                    const Icon = control.icon;
+                                    const active = Boolean(automationSettings.channels?.[control.id]);
+                                    return (
+                                        <button
+                                            key={control.id}
+                                            type="button"
+                                            onClick={() => handleChannelToggle(control.id)}
+                                            disabled={automationSaving}
+                                            className={`group relative flex items-start gap-3 rounded-2xl border p-4 text-left transition ${
+                                                active
+                                                    ? 'border-primary/40 bg-primary/5 shadow-sm'
+                                                    : 'border-border/60 bg-card/80 hover:border-primary/40 hover:bg-primary/5/50'
+                                            }`}
+                                        >
+                                            <span className={`flex h-10 w-10 items-center justify-center rounded-full ${control.accentBg}`}>
+                                                <Icon className={`h-5 w-5 ${control.accent}`} />
+                                            </span>
+                                            <div className="flex-1 space-y-1">
+                                                <p className="text-sm font-semibold text-foreground">{control.label}</p>
+                                                <p className="text-xs text-muted-foreground">{control.description}</p>
+                                            </div>
+                                            <Badge variant={active ? 'default' : 'outline'} className="ml-auto">
+                                                {active ? 'Active' : 'Off'}
+                                            </Badge>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         </Card>
                     </div>
 
-                    <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                        <div>
-                            <h1 className="text-3xl font-bold text-foreground">Leads</h1>
-                            <p className="text-muted-foreground mt-1">Manage and engage with your potential customers.</p>
-                        </div>
-                        <div className="flex items-center gap-4 w-full md:w-auto">
-                            <SearchInput 
-                                placeholder="Filter leads..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                containerClassName="w-full md:w-64"
-                            />
-                            <Button onClick={() => setIsAddModalOpen(true)} className="gap-2 shrink-0">
-                                <PlusIcon /> Add Lead
-                            </Button>
-                        </div>
-                    </div>
+                    <div className="space-y-6">
+                        <Card className="border border-border/60 lg:sticky lg:top-8 shadow-sm">
+                            <div className="flex items-center gap-2 mb-4">
+                                <SparklesIcon className="w-6 h-6 text-primary" />
+                                <h3 className="text-xl font-semibold text-foreground">Lead workspace</h3>
+                            </div>
+                            {activeLead ? (
+                                <div className="space-y-4 animate-fade-in">
+                                    <div>
+                                        <h4 className="font-semibold text-foreground">{activeLead.name}</h4>
+                                        <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                                            {activeLead.company} • {activeLead.status}
+                                        </p>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        <Button
+                                            size="sm"
+                                            variant={panelMode === 'personalize' ? 'default' : 'outline'}
+                                            onClick={() => handlePersonalizeClick(activeLead)}
+                                            disabled={isGenerating}
+                                        >
+                                            AI Personalize
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant={panelMode === 'research' ? 'default' : 'outline'}
+                                            onClick={() => handleResearchLead(activeLead)}
+                                        >
+                                            Research
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => setMessageLead(activeLead)}
+                                        >
+                                            Message
+                                        </Button>
+                                    </div>
 
-                    <Card>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left">
-                                <thead className="border-b border-border">
-                                    <tr>
-                                        <th className="p-3 text-sm font-semibold text-foreground">Name</th>
-                                        <th className="p-3 text-sm font-semibold text-foreground">Company</th>
-                                        <th className="p-3 text-sm font-semibold text-foreground">Status</th>
-                                        <th className="p-3 text-sm font-semibold text-foreground">Source</th>
-                                        <th className="p-3 text-sm font-semibold text-foreground text-right">Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {loading ? (
-                                        <tr>
-                                            <td className="p-3 text-muted-foreground" colSpan={5}>Loading leads...</td>
-                                        </tr>
-                                    ) : filteredLeads.length > 0 ? filteredLeads.map(lead => (
-                                        <tr key={lead.id} className="hover:bg-muted/50 cursor-pointer transition-colors" onClick={() => setDetailViewLead(lead)}>
-                                            <td className="p-3 font-medium text-foreground">{lead.name}</td>
-                                            <td className="p-3 text-muted-foreground">{lead.company}</td>
-                                            <td className="p-3">
-                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-                                                    lead.status === 'New' ? 'bg-primary/20 text-primary' :
-                                                    lead.status === 'Contacted' ? 'bg-accent/20 text-accent-foreground' :
-                                                    lead.status === 'Qualified' ? 'bg-chart-2/20 text-chart-2' :
-                                                    'bg-destructive/20 text-destructive'
-                                                }`}>{lead.status}</span>
-                                            </td>
-                                            <td className="p-3 text-muted-foreground">{lead.source}</td>
-                                            <td className="p-3">
-                                                <div className="flex flex-wrap justify-end gap-2">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleResearchLead(lead);
-                                                        }}
-                                                    >
-                                                        Research
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setMessageLead(lead);
-                                                        }}
-                                                    >
-                                                        Message
-                                                    </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handlePersonalizeClick(lead);
-                                                        }}
-                                                    >
-                                                        AI Personalize
-                                                    </Button>
-                                                    <Button
-                                                        variant="outline"
-                                                        size="sm"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            setEditingLead(lead);
-                                                            setEditError(null);
-                                                        }}
-                                                    >
-                                                        Edit
-                                                    </Button>
+                                    {panelMode === 'research' ? (
+                                        <div className="space-y-3">
+                                            <h5 className="text-sm font-semibold text-foreground">Research snapshot</h5>
+                                            {researchHighlights.length > 0 ? (
+                                                <ul className="space-y-2">
+                                                    {researchHighlights.map((item, index) => (
+                                                        <li key={index} className="text-sm text-muted-foreground leading-snug">
+                                                            • {item}
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            ) : (
+                                                <p className="text-sm text-muted-foreground">
+                                                    Click “Research” to generate quick insights for this lead.
+                                                </p>
+                                            )}
+                                            <div className="flex flex-col gap-2">
+                                                <Button size="sm" onClick={() => handlePersonalizeClick(activeLead)}>
+                                                    Generate outreach copy
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="secondary"
+                                                    onClick={() => setMessageLead(activeLead)}
+                                                >
+                                                    Open message composer
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : panelMode === 'personalize' ? (
+                                        <>
+                                            {isGenerating ? (
+                                                <div className="min-h-[200px] flex items-center justify-center">
+                                                    <svg className="animate-spin h-6 w-6 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
                                                 </div>
-                                            </td>
-                                        </tr>
-                                    )) : (
-                                        <tr>
-                                            <td className="p-6 text-center text-muted-foreground" colSpan={5}>No leads found. Add your first lead to get started.</td>
-                                        </tr>
+                                            ) : (
+                                                <Textarea
+                                                    readOnly
+                                                    value={personalizedMessage}
+                                                    className="w-full h-48 bg-input text-foreground rounded-[var(--radius)] p-3 focus:outline-none resize-none border border-border"
+                                                />
+                                            )}
+                                            {generationError && <p className="text-xs text-destructive">{generationError}</p>}
+                                            <Button
+                                                className="w-full"
+                                                onClick={() => setMessageLead(activeLead)}
+                                            >
+                                                Send message
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground">
+                                            Select a workflow to start personalising outreach for {activeLead.name}.
+                                        </p>
                                     )}
-                                </tbody>
-                            </table>
-                        </div>
-                    </Card>
-                </div>
-                <div className="lg:col-span-1">
-                    <Card className="sticky top-8">
-                <div className="flex items-center gap-2 mb-4">
-                    <SparklesIcon className="w-6 h-6 text-primary" />
-                    <h3 className="text-xl font-semibold text-foreground">Lead Workspace</h3>
-                </div>
-                {activeLead ? (
-                    <div className="space-y-4 animate-fade-in">
-                        <div>
-                            <h4 className="font-semibold text-foreground">{activeLead.name}</h4>
-                            <p className="text-xs text-muted-foreground uppercase tracking-wide">
-                                {activeLead.company} • {activeLead.status}
-                            </p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            <Button
-                                size="sm"
-                                variant={panelMode === 'personalize' ? 'default' : 'outline'}
-                                onClick={() => handlePersonalizeClick(activeLead)}
-                                disabled={isGenerating}
-                            >
-                                AI Personalize
-                            </Button>
-                            <Button
-                                size="sm"
-                                variant={panelMode === 'research' ? 'default' : 'outline'}
-                                onClick={() => handleResearchLead(activeLead)}
-                            >
-                                Research
-                            </Button>
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setMessageLead(activeLead)}
-                            >
-                                Message
-                            </Button>
-                        </div>
-
-                        {panelMode === 'research' ? (
-                            <div className="space-y-3">
-                                <h5 className="text-sm font-semibold text-foreground">Research Snapshot</h5>
-                                {researchHighlights.length > 0 ? (
-                                    <ul className="space-y-2">
-                                        {researchHighlights.map((item, index) => (
-                                            <li key={index} className="text-sm text-muted-foreground leading-snug">
-                                                • {item}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : (
-                                    <p className="text-sm text-muted-foreground">
-                                        Click “Research” to generate quick insights for this lead.
-                                    </p>
-                                )}
-                                <div className="flex flex-col gap-2">
-                                    <Button size="sm" onClick={() => handlePersonalizeClick(activeLead)}>
-                                        Generate outreach copy
-                                    </Button>
-                                    <Button
-                                        size="sm"
-                                        variant="secondary"
-                                        onClick={() => setMessageLead(activeLead)}
-                                    >
-                                        Open message composer
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border/60 bg-muted/30 px-6 py-10 text-center">
+                                    <FileIcon className="h-10 w-10 text-muted-foreground" />
+                                    <div className="space-y-1">
+                                        <h4 className="text-base font-semibold text-foreground">{emptyWorkspaceCopy.title}</h4>
+                                        <p className="text-sm text-muted-foreground">{emptyWorkspaceCopy.description}</p>
+                                    </div>
+                                    <Button variant="outline" onClick={() => setIsAddModalOpen(true)}>
+                                        Add a lead
                                     </Button>
                                 </div>
+                            )}
+                        </Card>
+
+                        <Card className="border border-border/60 shadow-sm">
+                            <div className="flex items-center justify-between mb-4">
+                                <div>
+                                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Priority follow-ups</p>
+                                    <h3 className="text-lg font-semibold text-foreground">Stay ahead of the queue</h3>
+                                </div>
+                                <Badge variant="outline" className="text-xs">Autoprioritised</Badge>
                             </div>
-                        ) : panelMode === 'personalize' ? (
-                            <>
-                                {isGenerating ? (
-                                    <div className="min-h-[200px] flex items-center justify-center">
-                                        <svg className="animate-spin h-6 w-6 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                    </div>
+                            <div className="space-y-3">
+                                {nextFollowUps.length > 0 ? (
+                                    nextFollowUps.map((lead) => (
+                                        <div key={lead.id} className="relative rounded-2xl border border-border/60 bg-card/70 p-4">
+                                            <span
+                                                className="absolute left-0 top-3 bottom-3 w-1 rounded-full"
+                                                style={{ backgroundColor: statusAccentColors[lead.status] }}
+                                            />
+                                            <div className="pl-3">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div>
+                                                        <p className="font-semibold text-foreground">{lead.name}</p>
+                                                        <p className="text-xs text-muted-foreground">{lead.company}</p>
+                                                    </div>
+                                                    <Badge variant="outline" className="capitalize">
+                                                        {lead.status}
+                                                    </Badge>
+                                                </div>
+                                                <div className="mt-3 flex flex-wrap gap-2">
+                                                    <Button size="sm" variant="ghost" onClick={() => handleResearchLead(lead)}>
+                                                        Research
+                                                    </Button>
+                                                    <Button size="sm" variant="ghost" onClick={() => handlePersonalizeClick(lead)}>
+                                                        Personalize
+                                                    </Button>
+                                                    <Button size="sm" variant="outline" onClick={() => setMessageLead(lead)}>
+                                                        Message
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))
                                 ) : (
-                                    <Textarea
-                                        readOnly
-                                        value={personalizedMessage}
-                                        className="w-full h-48 bg-input text-foreground rounded-[var(--radius)] p-3 focus:outline-none resize-none border border-border"
-                                    />
+                                    <p className="text-sm text-muted-foreground">
+                                        All caught up—add new leads or nurture existing ones to populate this list.
+                                    </p>
                                 )}
-                                {generationError && <p className="text-xs text-destructive">{generationError}</p>}
-                                <Button
-                                    className="w-full"
-                                    onClick={() => setMessageLead(activeLead)}
-                                >
-                                    Send Message
-                                </Button>
-                            </>
-                        ) : (
-                            <p className="text-sm text-muted-foreground">
-                                Choose Research or AI Personalize to get started with {activeLead.name}.
-                            </p>
-                        )}
+                            </div>
+                        </Card>
                     </div>
-                ) : (
-                    <div className="text-center py-10">
-                        <p className="text-muted-foreground">Select a lead to run research or generate outreach copy.</p>
-                    </div>
-                )}
-                    </Card>
                 </div>
-            </div>
+
+                <Card className="border border-border/60 shadow-sm">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border/60 px-4 py-4">
+                        <div>
+                            <h3 className="text-lg font-semibold text-foreground">Lead pipeline</h3>
+                            <p className="text-sm text-muted-foreground">Track every opportunity across the funnel.</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            {statusSummary.map((status) => (
+                                <Badge key={status.label} variant="outline" className="px-3 py-1 text-xs font-medium">
+                                    {status.label} · {status.count}
+                                </Badge>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left">
+                            <thead className="bg-muted/40">
+                                <tr className="text-xs uppercase tracking-wide text-muted-foreground">
+                                    <th className="px-4 py-3 font-semibold text-foreground">Lead</th>
+                                    <th className="px-4 py-3 font-semibold text-foreground">Company</th>
+                                    <th className="px-4 py-3 font-semibold text-foreground">Status</th>
+                                    <th className="px-4 py-3 font-semibold text-foreground">Source</th>
+                                    <th className="px-4 py-3 font-semibold text-right text-foreground">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {loading ? (
+                                    <tr>
+                                        <td className="px-4 py-6 text-center text-muted-foreground" colSpan={5}>
+                                            Loading leads...
+                                        </td>
+                                    </tr>
+                                ) : filteredLeads.length > 0 ? (
+                                    filteredLeads.map((lead) => (
+                                        <tr
+                                            key={lead.id}
+                                            className="group cursor-pointer border-b border-border/60 transition hover:bg-muted/40"
+                                            onClick={() => setDetailViewLead(lead)}
+                                        >
+                                            <td className="px-4 py-4">
+                                                <p className="font-semibold text-foreground group-hover:text-primary transition">{lead.name}</p>
+                                                <p className="text-xs text-muted-foreground">ID: {lead.id}</p>
+                                            </td>
+                                            <td className="px-4 py-4 text-muted-foreground">{lead.company}</td>
+                                            <td className="px-4 py-4">
+                                                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                                                    lead.status === 'New' ? 'bg-primary/15 text-primary' :
+                                                    lead.status === 'Contacted' ? 'bg-orange-500/15 text-orange-500' :
+                                                    lead.status === 'Qualified' ? 'bg-emerald-500/15 text-emerald-500' :
+                                                    'bg-slate-500/15 text-slate-500'
+                                                }`}>
+                                                    {lead.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-4 py-4 text-muted-foreground">{lead.source}</td>
+                                            <td className="px-4 py-4 text-right">
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8"
+                                                            onClick={(event) => event.stopPropagation()}
+                                                        >
+                                                            <MoreIcon className="h-4 w-4 text-muted-foreground" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end" className="w-44" onClick={(event) => event.stopPropagation()}>
+                                                        <DropdownMenuItem
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                handleResearchLead(lead);
+                                                            }}
+                                                        >
+                                                            Generate research
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                handlePersonalizeClick(lead);
+                                                            }}
+                                                        >
+                                                            AI personalize copy
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                setMessageLead(lead);
+                                                            }}
+                                                        >
+                                                            Compose message
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuItem
+                                                            onClick={(event) => {
+                                                                event.stopPropagation();
+                                                                setEditingLead(lead);
+                                                                setEditError(null);
+                                                            }}
+                                                        >
+                                                            Edit lead
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </td>
+                                        </tr>
+                                    ))
+                                ) : (
+                                    <tr>
+                                        <td className="px-4 py-12" colSpan={5}>
+                                            <div className="flex flex-col items-center gap-3 text-muted-foreground">
+                                                <FileIcon className="h-10 w-10" />
+                                                <p>No leads found. Add your first lead to get started.</p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </Card>
+        </div>
         </>
     );
 };

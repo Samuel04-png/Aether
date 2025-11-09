@@ -96,6 +96,18 @@ export const EnvelopeIcon: React.FC<{className?: string}> = ({className}) => (
     <svg {...iconProps} className={className || "w-5 h-5"}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
 );
 
+export const PhoneIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg {...iconProps} className={className || "w-5 h-5"}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 7.593 6.157 13.75 13.75 13.75h1.238a2.75 2.75 0 002.667-2.004l.57-2.07a1.25 1.25 0 00-.72-1.47l-3.02-1.208a1.25 1.25 0 00-1.403.36l-.87 1.09a10.97 10.97 0 01-4.74-4.74l1.09-.87a1.25 1.25 0 00.36-1.403L8.024 4.98a1.25 1.25 0 00-1.47-.72l-2.07.57A2.75 2.75 0 002.25 6.75z" />
+  </svg>
+);
+
+export const MoreIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg {...iconProps} className={className || "w-5 h-5"}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 12a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm7.5 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm7.5 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z" />
+  </svg>
+);
+
 export const MenuIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg
     {...iconProps}

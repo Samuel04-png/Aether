@@ -37,7 +37,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, className,
         exit={slideLeft.exit}
         transition={transitions.smooth}
         className={cn(
-          "w-64 bg-sidebar/98 backdrop-blur-xl flex-shrink-0 p-6 flex flex-col justify-between border-r border-border/60 shadow-2xl z-20",
+          "sticky top-0 h-screen w-64 bg-sidebar/95 backdrop-blur-xl flex-shrink-0 p-6 flex flex-col justify-between border-r border-border/60 shadow-2xl z-20 overflow-y-auto",
           className,
         )}
       >

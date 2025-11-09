@@ -298,13 +298,11 @@ const App: React.FC = () => {
 
   return (
     <div className="flex min-h-screen bg-background font-sans text-foreground">
-      <div className="hidden lg:flex">
-        <Sidebar
-          activeView={activeView}
-          setActiveView={setActiveView}
-          className="h-screen"
-        />
-      </div>
+      <Sidebar
+        activeView={activeView}
+        setActiveView={setActiveView}
+        className="h-screen max-lg:hidden"
+      />
       <div className="flex-1 flex flex-col overflow-hidden relative">
         <Header
           activeView={activeView}
