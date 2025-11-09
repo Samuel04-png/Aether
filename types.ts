@@ -1,4 +1,4 @@
-export type ViewType = 'dashboard' | 'chat' | 'social' | 'website' | 'tasks' | 'projects' | 'leads' | 'settings' | 'notifications';
+export type ViewType = 'dashboard' | 'chat' | 'insights' | 'tasks' | 'projects' | 'leads' | 'settings' | 'notifications';
 
 export type TaskStatus = 'todo' | 'inprogress' | 'done';
 
@@ -31,6 +31,7 @@ export interface Task {
   assignedTo?: string; // User ID
   assignedBy?: string; // User ID
   createdAt?: string;
+  completedAt?: string;
   projectId?: string;
 }
 
@@ -115,9 +116,29 @@ export interface Lead {
   email: string;
   status: 'New' | 'Contacted' | 'Qualified' | 'Lost';
   source: string;
+  phone?: string;
+  value?: string;
   archived?: boolean;
   archivedAt?: string;
   createdAt?: string;
+}
+
+export interface SalesAutomationChannels {
+  sms: boolean;
+  voice: boolean;
+  invoices: boolean;
+  appointments: boolean;
+}
+
+export interface SalesAutomationSettings {
+  enabled: boolean;
+  businessPhone: string;
+  invoiceEmail: string;
+  calendarLink?: string;
+  officeHours?: string;
+  playbook?: string;
+  channels: SalesAutomationChannels;
+  updatedAt?: string;
 }
 
 export interface Notification {
@@ -146,4 +167,6 @@ export interface UserProfile {
   goals: string[];
   completedOnboarding: boolean;
   workspaceId?: string;
+  demoDataAcknowledged?: boolean;
+  demoDataRemovedAt?: string;
 }

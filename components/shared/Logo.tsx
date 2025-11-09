@@ -12,8 +12,8 @@ interface LogoProps {
   size?: number;
 }
 
-const LOGO_DARK_SRC = '/aether-logo/Logo.png';
-const LOGO_LIGHT_SRC = '/aether-logo/Logo_lightmode.png';
+const LOGO_PRIMARY = '/aether-logo/Logo.png';
+const LOGO_LIGHTMODE = '/aether-logo/Logo_lightmode.png';
 
 export const Logo: React.FC<LogoProps> = ({
   className,
@@ -22,7 +22,7 @@ export const Logo: React.FC<LogoProps> = ({
   size,
 }) => {
   const { theme } = useTheme();
-  const src = theme === 'light' ? LOGO_LIGHT_SRC : LOGO_DARK_SRC;
+  const src = theme === 'dark' ? LOGO_LIGHTMODE : LOGO_PRIMARY;
   const dimension = size ?? (variant === 'compact' ? 28 : 40);
 
   const image = (
@@ -59,7 +59,7 @@ export const Logo: React.FC<LogoProps> = ({
 
 export const LogoSpinner: React.FC<{ className?: string }> = ({ className }) => {
   const { theme } = useTheme();
-  const src = theme === 'light' ? LOGO_LIGHT_SRC : LOGO_DARK_SRC;
+  const src = theme === 'dark' ? LOGO_LIGHTMODE : LOGO_PRIMARY;
 
   return (
     <div className={cn('relative inline-flex items-center justify-center', className)}>

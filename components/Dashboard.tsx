@@ -73,40 +73,58 @@ const Dashboard: React.FC = () => {
 
   // Generate productivity/work tracking data for the last 7 days
   const productivityData = useMemo(() => {
-    const days = [];
     const today = new Date();
-    
-    for (let i = 6; i >= 0; i--) {
-      const date = new Date(today);
-      date.setDate(date.getDate() - i);
-      const dateStr = date.toISOString().split('T')[0];
-      const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-      
-      // Count tasks completed on this day (simplified - using created date as proxy)
-      // In a real app, you'd track completion dates
-      const tasksOnDay = tasks.filter(task => {
-        if (task.status === 'done' && task.createdAt) {
-          const taskDate = new Date(task.createdAt).toISOString().split('T')[0];
-          return taskDate <= dateStr;
-        }
-        return false;
+    today.setHours(0, 0, 0, 0);
+
+    const parsedTasks = tasks.map((task) => {
+      const created = task.createdAt ? new Date(task.createdAt) : null;
+      const completed = task.completedAt ? new Date(task.completedAt) : null;
+      if (created) created.setSeconds(0, 0);
+      if (completed) completed.setSeconds(0, 0);
+      return {
+        ...task,
+        createdAtDate: created,
+        completedAtDate: completed,
+      };
+    });
+
+    const results = [];
+
+    for (let offset = 6; offset >= 0; offset--) {
+      const dayStart = new Date(today);
+      dayStart.setDate(today.getDate() - offset);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(dayStart);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      const completed = parsedTasks.filter(
+        (task) => task.completedAtDate && task.completedAtDate >= dayStart && task.completedAtDate <= dayEnd,
+      ).length;
+
+      const created = parsedTasks.filter(
+        (task) => task.createdAtDate && task.createdAtDate >= dayStart && task.createdAtDate <= dayEnd,
+      ).length;
+
+      const inProgress = parsedTasks.filter((task) => {
+        const createdAt = task.createdAtDate;
+        const completedAt = task.completedAtDate;
+        if (!createdAt) return false;
+        const started = createdAt <= dayEnd;
+        const notCompletedYet = !completedAt || completedAt > dayEnd;
+        return started && notCompletedYet;
       }).length;
-      
-      // Estimate daily completion (distribute completed tasks across last 7 days)
-      const totalDone = tasksByStatus.done.length;
-      const estimatedDaily = Math.floor(totalDone / 7) + (i < totalDone % 7 ? 1 : 0);
-      
-      days.push({
-        day: dayName,
-        date: dateStr,
-        completed: estimatedDaily,
-        inProgress: Math.floor(tasksByStatus.inprogress.length / 7),
-        created: Math.floor(tasksByStatus.todo.length / 7) + estimatedDaily,
+
+      results.push({
+        day: dayStart.toLocaleDateString('en-US', { weekday: 'short' }),
+        date: dayStart.toISOString().split('T')[0],
+        completed,
+        inProgress,
+        created,
       });
     }
-    
-    return days;
-  }, [tasks, tasksByStatus]);
+
+    return results;
+  }, [tasks]);
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [uploadType, setUploadType] = useState<'kpi' | 'sales'>('kpi');

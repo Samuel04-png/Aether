@@ -3,6 +3,7 @@ import {
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDocs,
   onSnapshot,
@@ -18,6 +19,18 @@ import {
 } from 'firebase/firestore';
 import { Task, TaskStatus, TeamMember } from '../types';
 import { db } from '../services/firebase';
+
+const TASKS_PAGE_SIZE = 20;
+
+const normalizeTimestamp = (value: any): string | undefined => {
+  if (!value) return undefined;
+  if (typeof value === 'string') return value;
+  if (value instanceof Date) return value.toISOString();
+  if ((value as Timestamp)?.toDate) {
+    return (value as Timestamp).toDate().toISOString();
+  }
+  return undefined;
+};
 
 export interface NewTaskInput {
   title: string;
@@ -45,27 +58,15 @@ const cleanTaskData = (data: any): any => {
   return cleaned;
 };
 
-const normalizeTimestamp = (value: any): string | undefined => {
-  if (!value) return undefined;
-  if (typeof value === 'string') return value;
-  if (value instanceof Date) return value.toISOString();
-  if ((value as Timestamp)?.toDate) {
-    return (value as Timestamp).toDate().toISOString();
-  }
-  return undefined;
-};
-
-const TASKS_PAGE_SIZE = 20;
-
 export const useTasks = (userId?: string) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState<boolean>(Boolean(userId));
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [hasMore, setHasMore] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const lastDocRef = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-  const [, setLastDocInternal] = lastDocRef;
-  const lastDoc = lastDocRef[0];
+  const lastDocState = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [, setLastDocInternal] = lastDocState;
+  const lastDoc = lastDocState[0];
 
   useEffect(() => {
     if (!userId) {
@@ -86,17 +87,18 @@ export const useTasks = (userId?: string) => {
     const unsubscribe = onSnapshot(
       baseQuery,
       (snapshot) => {
-        const tasksData = snapshot.docs.map((document) => {
+        const nextTasks: Task[] = snapshot.docs.map((document) => {
           const data = document.data() as Omit<Task, 'id'> & { id?: string };
           return {
             id: document.id,
             ...data,
-            createdAt: normalizeTimestamp((data as any).createdAt),
-          };
+            createdAt: normalizeTimestamp((data as any).createdAt) ?? undefined,
+            completedAt: normalizeTimestamp((data as any).completedAt) ?? undefined,
+          } as Task;
         });
         setLastDocInternal(snapshot.docs.length ? snapshot.docs[snapshot.docs.length - 1] : null);
         setHasMore(snapshot.size === TASKS_PAGE_SIZE);
-        setTasks(tasksData);
+        setTasks(nextTasks);
         setLoading(false);
         setError(null);
       },
@@ -109,69 +111,8 @@ export const useTasks = (userId?: string) => {
     return () => unsubscribe();
   }, [userId]);
 
-  const addTask = useCallback(
-    async (input: NewTaskInput) => {
-      if (!userId) throw new Error('You must be signed in to create tasks.');
-      const tasksCollection = collection(db, 'users', userId, 'tasks');
-      const taskData: any = {
-        title: input.title,
-        description: input.description,
-        status: input.status ?? 'todo',
-        createdAt: serverTimestamp(),
-      };
-      
-      if (input.dueDate) {
-        taskData.dueDate = input.dueDate;
-      }
-      if (input.assignee) {
-        taskData.assignee = input.assignee;
-      }
-      
-      const cleanedData = cleanTaskData(taskData);
-      const docRef = await addDoc(tasksCollection, cleanedData);
-      await updateDoc(docRef, { id: docRef.id });
-    },
-    [userId],
-  );
-
-  const updateTaskStatus = useCallback(
-    async (taskId: string, status: TaskStatus) => {
-      if (!userId) throw new Error('You must be signed in to update tasks.');
-      const taskDoc = doc(db, 'users', userId, 'tasks', taskId);
-      await updateDoc(taskDoc, { status });
-    },
-    [userId],
-  );
-
-  const assignTask = useCallback(
-    async (taskId: string, assignee: TeamMember | null) => {
-      if (!userId) throw new Error('You must be signed in to assign tasks.');
-      const taskDoc = doc(db, 'users', userId, 'tasks', taskId);
-      const updateData: any = {};
-      if (assignee) {
-        updateData.assignee = assignee;
-        updateData.assignedTo = assignee.id;
-      } else {
-        // Use FieldValue.delete() equivalent - set to null and filter in query
-        updateData.assignee = null;
-        updateData.assignedTo = null;
-      }
-      await updateDoc(taskDoc, cleanTaskData(updateData));
-    },
-    [userId],
-  );
-
-  const deleteTask = useCallback(
-    async (taskId: string) => {
-      if (!userId) throw new Error('You must be signed in to delete tasks.');
-      const taskDoc = doc(db, 'users', userId, 'tasks', taskId);
-      await deleteDoc(taskDoc);
-    },
-    [userId],
-  );
-
   const loadMoreTasks = useCallback(async () => {
-    if (!userId || !lastDoc) return;
+    if (!userId || !lastDoc || isLoadingMore) return;
     setIsLoadingMore(true);
     try {
       const tasksCollection = collection(db, 'users', userId, 'tasks');
@@ -192,11 +133,12 @@ export const useTasks = (userId?: string) => {
             map.set(document.id, {
               id: document.id,
               ...data,
-              createdAt: normalizeTimestamp((data as any).createdAt),
-            });
+              createdAt: normalizeTimestamp((data as any).createdAt) ?? undefined,
+              completedAt: normalizeTimestamp((data as any).completedAt) ?? undefined,
+            } as Task);
           });
           const merged = Array.from(map.values());
-          merged.sort((a, b) => {
+          merged.sort((a: any, b: any) => {
             if (a.createdAt && b.createdAt) {
               return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
             }
@@ -210,7 +152,70 @@ export const useTasks = (userId?: string) => {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [userId, lastDoc]);
+  }, [userId, lastDoc, isLoadingMore]);
+
+  const addTask = useCallback(
+    async (input: NewTaskInput) => {
+      if (!userId) throw new Error('You must be signed in to create tasks.');
+      const tasksCollection = collection(db, 'users', userId, 'tasks');
+      const taskData: any = {
+        title: input.title,
+        description: input.description,
+        status: input.status ?? 'todo',
+        createdAt: serverTimestamp(),
+      };
+      if (input.dueDate) {
+        taskData.dueDate = input.dueDate;
+      }
+      if (input.assignee) {
+        taskData.assignee = input.assignee;
+      }
+
+      const cleanedData = cleanTaskData(taskData);
+      const docRef = await addDoc(tasksCollection, cleanedData);
+      await updateDoc(docRef, { id: docRef.id });
+    },
+    [userId],
+  );
+
+  const updateTaskStatus = useCallback(
+    async (taskId: string, status: TaskStatus) => {
+      if (!userId) throw new Error('You must be signed in to update tasks.');
+      const taskDoc = doc(db, 'users', userId, 'tasks', taskId);
+      if (status === 'done') {
+        await updateDoc(taskDoc, { status, completedAt: serverTimestamp() });
+      } else {
+        await updateDoc(taskDoc, { status, completedAt: deleteField() });
+      }
+    },
+    [userId],
+  );
+
+  const assignTask = useCallback(
+    async (taskId: string, assignee: TeamMember | null) => {
+      if (!userId) throw new Error('You must be signed in to assign tasks.');
+      const taskDoc = doc(db, 'users', userId, 'tasks', taskId);
+      const updateData: any = {};
+      if (assignee) {
+        updateData.assignee = assignee;
+        updateData.assignedTo = assignee.id;
+      } else {
+        updateData.assignee = null;
+        updateData.assignedTo = null;
+      }
+      await updateDoc(taskDoc, cleanTaskData(updateData));
+    },
+    [userId],
+  );
+
+  const deleteTask = useCallback(
+    async (taskId: string) => {
+      if (!userId) throw new Error('You must be signed in to delete tasks.');
+      const taskDoc = doc(db, 'users', userId, 'tasks', taskId);
+      await deleteDoc(taskDoc);
+    },
+    [userId],
+  );
 
   const tasksByStatus = useMemo(() => ({
     todo: tasks.filter((task) => task.status === 'todo'),
@@ -222,14 +227,14 @@ export const useTasks = (userId?: string) => {
     tasks,
     tasksByStatus,
     loading,
+    error,
     isLoadingMore,
     hasMore,
-    error,
+    loadMoreTasks,
     addTask,
     updateTaskStatus,
     assignTask,
     deleteTask,
-    loadMoreTasks,
   };
 };
 

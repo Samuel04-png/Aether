@@ -31,6 +31,18 @@ const normalizeTimestamp = (value: any): string | undefined => {
   return undefined;
 };
 
+const sanitizeLeadUpdates = (updates: Partial<Lead>): Partial<Lead> => {
+  const allowedKeys: Array<keyof Lead> = ['name', 'company', 'email', 'source', 'status'];
+  const cleaned: Partial<Lead> = {};
+  allowedKeys.forEach((key) => {
+    const value = updates[key];
+    if (value !== undefined) {
+      cleaned[key] = value;
+    }
+  });
+  return cleaned;
+};
+
 export interface NewLeadInput {
   name: string;
   company: string;
@@ -131,6 +143,19 @@ export const useLeads = (userId?: string) => {
     [userId],
   );
 
+  const updateLead = useCallback(
+    async (leadId: string, updates: Partial<Lead>) => {
+      if (!userId) throw new Error('You must be signed in to update leads.');
+      const payload = sanitizeLeadUpdates(updates);
+      if (Object.keys(payload).length === 0) {
+        return;
+      }
+      const leadDoc = doc(db, 'users', userId, 'leads', leadId);
+      await updateDoc(leadDoc, payload);
+    },
+    [userId],
+  );
+
   const loadMoreLeads = useCallback(async () => {
     if (!userId || !lastDoc) return;
     setIsLoadingMore(true);
@@ -184,6 +209,7 @@ export const useLeads = (userId?: string) => {
     error,
     addLead,
     updateLeadStatus,
+    updateLead,
     removeLead,
     loadMoreLeads,
   };

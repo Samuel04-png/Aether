@@ -6,6 +6,7 @@ import {
   serverTimestamp,
   setDoc,
   writeBatch,
+  deleteDoc,
 } from 'firebase/firestore';
 import { auth, db } from './firebase';
 import { ChatMessage, Lead, Notification, Project, Task, TeamMember } from '../types';
@@ -42,21 +43,75 @@ const defaultTeamMembers: TeamMember[] = [
 ];
 
 const defaultTasks: Task[] = [
-  { id: 'task-1', title: 'Draft Q4 budget report', description: 'Finance team needs this by EOW.', status: 'todo', dueDate: '2024-11-15', assignee: defaultTeamMembers[0] },
-  { id: 'task-2', title: 'Follow up with Innovate Inc.', description: 'Regarding partnership opportunities.', status: 'todo', dueDate: '2024-11-12', assignee: defaultTeamMembers[3] },
-  { id: 'task-3', title: 'Develop new landing page mockups', description: 'Using Figma, focus on conversion.', status: 'inprogress', dueDate: '2024-11-20', assignee: defaultTeamMembers[2] },
-  { id: 'task-4', title: 'Onboard new marketing hire', description: 'Welcome kit sent and initial meetings scheduled.', status: 'done' },
-  { id: 'task-5', title: 'Fix login authentication bug', description: 'Users reporting issues with social login.', status: 'inprogress', dueDate: '2024-11-10', assignee: defaultTeamMembers[1] },
-  { id: 'task-6', title: 'Plan social media campaign for Black Friday', description: 'Coordinate with marketing and design teams.', status: 'todo', dueDate: '2024-11-18', assignee: defaultTeamMembers[3] },
-  { id: 'task-7', title: 'Deploy server updates', description: 'Staging server deployment complete.', status: 'done', assignee: defaultTeamMembers[4] },
+  {
+    id: 'task-1',
+    title: 'Draft Q4 budget report',
+    description: 'Finance team needs this by EOW.',
+    status: 'todo',
+    dueDate: '2024-11-15',
+    assignee: defaultTeamMembers[0],
+    assignedTo: defaultTeamMembers[0].id,
+  },
+  {
+    id: 'task-2',
+    title: 'Follow up with Innovate Inc.',
+    description: 'Regarding partnership opportunities.',
+    status: 'todo',
+    dueDate: '2024-11-12',
+    assignee: defaultTeamMembers[3],
+    assignedTo: defaultTeamMembers[3].id,
+  },
+  {
+    id: 'task-3',
+    title: 'Develop new landing page mockups',
+    description: 'Using Figma, focus on conversion.',
+    status: 'inprogress',
+    dueDate: '2024-11-20',
+    assignee: defaultTeamMembers[2],
+    assignedTo: defaultTeamMembers[2].id,
+  },
+  {
+    id: 'task-4',
+    title: 'Onboard new marketing hire',
+    description: 'Welcome kit sent and initial meetings scheduled.',
+    status: 'done',
+    completedAt: '2024-11-01T14:30:00.000Z',
+  },
+  {
+    id: 'task-5',
+    title: 'Fix login authentication bug',
+    description: 'Users reporting issues with social login.',
+    status: 'inprogress',
+    dueDate: '2024-11-10',
+    assignee: defaultTeamMembers[1],
+    assignedTo: defaultTeamMembers[1].id,
+  },
+  {
+    id: 'task-6',
+    title: 'Plan social media campaign for Black Friday',
+    description: 'Coordinate with marketing and design teams.',
+    status: 'todo',
+    dueDate: '2024-11-18',
+    assignee: defaultTeamMembers[3],
+    assignedTo: defaultTeamMembers[3].id,
+  },
+  {
+    id: 'task-7',
+    title: 'Deploy server updates',
+    description: 'Staging server deployment complete.',
+    status: 'done',
+    assignee: defaultTeamMembers[4],
+    assignedTo: defaultTeamMembers[4].id,
+    completedAt: '2024-10-28T17:45:00.000Z',
+  },
 ];
 
 const defaultLeads: Lead[] = [
-  { id: 'lead-1', name: 'Alex Johnson', company: 'Innovate Corp', email: 'alex.j@innovate.com', status: 'New', source: 'Website', archived: false },
-  { id: 'lead-2', name: 'Samantha Miller', company: 'Solutions Inc.', email: 's.miller@solutions.io', status: 'Contacted', source: 'LinkedIn', archived: false },
-  { id: 'lead-3', name: 'David Chen', company: 'Data Dynamics', email: 'd.chen@datadynamics.co', status: 'Qualified', source: 'Referral', archived: false },
-  { id: 'lead-4', name: 'Maria Garcia', company: 'Creative Minds', email: 'maria.g@creativeminds.art', status: 'New', source: 'HubSpot', archived: false },
-  { id: 'lead-5', name: 'James Brown', company: 'Tech Forward', email: 'j.brown@techforward.com', status: 'Lost', source: 'Website', archived: false },
+  { id: 'lead-1', name: 'Alex Johnson', company: 'Innovate Corp', email: 'alex.j@innovate.com', status: 'New', source: 'Website' },
+  { id: 'lead-2', name: 'Samantha Miller', company: 'Solutions Inc.', email: 's.miller@solutions.io', status: 'Contacted', source: 'LinkedIn' },
+  { id: 'lead-3', name: 'David Chen', company: 'Data Dynamics', email: 'd.chen@datadynamics.co', status: 'Qualified', source: 'Referral' },
+  { id: 'lead-4', name: 'Maria Garcia', company: 'Creative Minds', email: 'maria.g@creativeminds.art', status: 'New', source: 'HubSpot' },
+  { id: 'lead-5', name: 'James Brown', company: 'Tech Forward', email: 'j.brown@techforward.com', status: 'Lost', source: 'Website' },
 ];
 
 const defaultNotifications: Array<Omit<Notification, 'userId'>> = [
@@ -282,5 +337,121 @@ export const seedUserWorkspace = async (userId: string) => {
     console.error('Error seeding workspace:', error);
     throw error;
   }
+};
+
+const deleteCollectionDocs = async (path: [string, ...string[]], batchSize = 200): Promise<number> => {
+  const collectionRef = collection(db, ...path);
+  const snapshot = await getDocs(collectionRef);
+  if (snapshot.empty) {
+    return 0;
+  }
+
+  let totalDeleted = 0;
+  let batch = writeBatch(db);
+  let operations = 0;
+
+  for (const document of snapshot.docs) {
+    batch.delete(document.ref);
+    operations += 1;
+    totalDeleted += 1;
+
+    if (operations === batchSize) {
+      await batch.commit();
+      batch = writeBatch(db);
+      operations = 0;
+    }
+  }
+
+  if (operations > 0) {
+    await batch.commit();
+  }
+
+  return totalDeleted;
+};
+
+export type DemoDataRemovalProgress = {
+  step: string;
+  status: 'running' | 'success' | 'error';
+  deleted?: number;
+};
+
+export const DEMO_DATA_REMOVAL_STEPS: ReadonlyArray<{ id: string; label: string }> = [
+  { id: 'tasks', label: 'Tasks' },
+  { id: 'leads', label: 'Leads' },
+  { id: 'projects', label: 'Projects' },
+  { id: 'notifications', label: 'Notifications' },
+  { id: 'teamMembers', label: 'Team Members' },
+  { id: 'channels', label: 'Channels & Messages' },
+  { id: 'dashboard', label: 'Dashboard Metrics' },
+  { id: 'analytics', label: 'Analytics Data' },
+  { id: 'socialStats', label: 'Additional Analytics Docs' },
+  { id: 'profileUpdate', label: 'Profile Update' },
+] as const;
+
+export const removeDemoData = async (
+  userId: string,
+  onProgress?: (progress: DemoDataRemovalProgress) => void,
+) => {
+  const progress = (step: string, status: DemoDataRemovalProgress['status'], deleted?: number) => {
+    onProgress?.({ step, status, deleted });
+  };
+
+  const runStep = async (step: string, handler: () => Promise<number | void>) => {
+    progress(step, 'running');
+    try {
+      const deleted = await handler();
+      progress(step, 'success', typeof deleted === 'number' ? deleted : undefined);
+    } catch (error) {
+      console.error(`Failed to remove ${step}`, error);
+      progress(step, 'error');
+      throw error;
+    }
+  };
+
+  await runStep('tasks', () => deleteCollectionDocs(['users', userId, 'tasks']));
+  await runStep('leads', () => deleteCollectionDocs(['users', userId, 'leads']));
+  await runStep('projects', () => deleteCollectionDocs(['users', userId, 'projects']));
+
+  await runStep('notifications', () => deleteCollectionDocs(['users', userId, 'notifications']));
+  await runStep('teamMembers', () => deleteCollectionDocs(['users', userId, 'teamMembers']));
+
+  await runStep('channels', async () => {
+    const channelsRef = collection(db, 'users', userId, 'channels');
+    const channelsSnapshot = await getDocs(channelsRef);
+    if (channelsSnapshot.empty) return 0;
+
+    let total = 0;
+    for (const channelDoc of channelsSnapshot.docs) {
+      total += await deleteCollectionDocs(['users', userId, 'channels', channelDoc.id, 'messages']);
+      await deleteDoc(channelDoc.ref);
+      total += 1;
+    }
+    return total;
+  });
+
+  await runStep('dashboard', async () => {
+    await deleteDoc(doc(db, 'users', userId, 'dashboard', 'overview'));
+    return 1;
+  });
+
+  await runStep('analytics', async () => {
+    await deleteDoc(doc(db, 'users', userId, 'analytics', 'social'));
+    return 1;
+  });
+
+  await runStep('socialStats', async () => deleteCollectionDocs(['users', userId, 'analytics']));
+
+  await runStep('profileUpdate', async () => {
+    const profileDoc = doc(db, 'users', userId, 'profile', 'workspace');
+    await setDoc(
+      profileDoc,
+      {
+        demoDataAcknowledged: true,
+        demoDataRemovedAt: new Date().toISOString(),
+      },
+      { merge: true },
+    );
+    return 1;
+  });
 };
 

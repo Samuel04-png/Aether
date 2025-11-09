@@ -1,52 +1,104 @@
-import { useEffect, useState } from 'react';
-import { collectionGroup, onSnapshot, query, where } from 'firebase/firestore';
+import { useEffect, useRef, useState } from 'react';
+import { collection, doc, getDoc, limit, onSnapshot, orderBy, query } from 'firebase/firestore';
 import { Task, Project } from '../types';
 import { db } from '../services/firebase';
 
 interface TaskWithProject extends Task {
-  projectName: string;
-  projectId: string;
+  projectName?: string;
 }
 
 export const useAssignedTasks = (userId?: string) => {
   const [assignedTasks, setAssignedTasks] = useState<TaskWithProject[]>([]);
   const [upcomingDeadlines, setUpcomingDeadlines] = useState<TaskWithProject[]>([]);
   const [loading, setLoading] = useState<boolean>(Boolean(userId));
+  const projectNameCacheRef = useRef<Map<string, string>>(new Map());
+
+  const normalizeTimestamp = (value: any): string | undefined => {
+    if (!value) return undefined;
+    if (typeof value === 'string') return value;
+    if (value instanceof Date) return value.toISOString();
+    if (value?.toDate) {
+      return value.toDate().toISOString();
+    }
+    return undefined;
+  };
+
+  const normalizeDateString = (value: any): string | undefined => {
+    if (!value) return undefined;
+    if (typeof value === 'string') return value;
+    if (value instanceof Date) return value.toISOString();
+    if (value?.toDate) {
+      return value.toDate().toISOString();
+    }
+    return undefined;
+  };
 
   useEffect(() => {
     if (!userId) {
       setAssignedTasks([]);
       setUpcomingDeadlines([]);
       setLoading(false);
+      projectNameCacheRef.current = new Map();
       return;
     }
 
     setLoading(true);
+    projectNameCacheRef.current = new Map();
 
-    const projectsQuery = query(
-      collectionGroup(db, 'projects'),
-      where('teamMemberIds', 'array-contains', userId),
-    );
+    const tasksCollection = collection(db, 'users', userId, 'tasks');
+    const tasksQuery = query(tasksCollection, orderBy('createdAt', 'desc'), limit(100));
 
     const unsubscribe = onSnapshot(
-      projectsQuery,
-      (projectsSnapshot) => {
-        const tasksWithProjects: TaskWithProject[] = [];
-
-        projectsSnapshot.docs.forEach((projectDoc) => {
-          const projectData = projectDoc.data() as Project;
-          const projectTasks = Array.isArray(projectData.tasks) ? projectData.tasks : [];
-
-          projectTasks
-            .filter((task) => task?.assignee?.id === userId || task?.assignedTo === userId)
-            .forEach((task) => {
-              tasksWithProjects.push({
-                ...task,
-                projectName: projectData.name,
-                projectId: projectDoc.id,
-              });
-            });
+      tasksQuery,
+      async (snapshot) => {
+        const allTasks = snapshot.docs.map((taskDoc) => {
+          const raw = taskDoc.data() as Omit<Task, 'id'> & { id?: string };
+          const createdAt = normalizeTimestamp((raw as any).createdAt);
+          const dueDate = normalizeDateString((raw as any).dueDate);
+          return {
+            id: taskDoc.id,
+            ...raw,
+            createdAt,
+            dueDate,
+          } as Task;
         });
+
+        const relevantTasks = allTasks.filter(
+          (task) => task.assignedTo === userId || task.assignee?.id === userId,
+        );
+
+        const projectIdsToFetch = Array.from(
+          new Set(
+            relevantTasks
+              .map((task) => task.projectId)
+              .filter((projectId): projectId is string => Boolean(projectId)),
+          ),
+        ).filter((projectId) => !projectNameCacheRef.current.has(projectId));
+
+        if (projectIdsToFetch.length > 0) {
+          await Promise.all(
+            projectIdsToFetch.map(async (projectId) => {
+              try {
+                const projectDoc = await getDoc(doc(db, 'users', userId, 'projects', projectId));
+                if (projectDoc.exists()) {
+                  const projectData = projectDoc.data() as Project;
+                  projectNameCacheRef.current.set(projectId, projectData.name);
+                } else {
+                  projectNameCacheRef.current.set(projectId, 'Project');
+                }
+              } catch (error) {
+                console.warn('Failed to resolve project name', projectId, error);
+              }
+            }),
+          );
+        }
+
+        const tasksWithProjects: TaskWithProject[] = relevantTasks.map((task) => ({
+          ...task,
+          projectName: task.projectId
+            ? projectNameCacheRef.current.get(task.projectId) ?? 'Project'
+            : 'General',
+        }));
 
         setAssignedTasks(tasksWithProjects);
 
@@ -71,7 +123,7 @@ export const useAssignedTasks = (userId?: string) => {
       (error) => {
         console.error('Error fetching assigned tasks:', error);
         setLoading(false);
-      }
+      },
     );
 
     return () => unsubscribe();

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Card from './shared/Card';
-import { PlusIcon, CloseIcon, SparklesIcon } from './shared/Icons';
+import { PlusIcon, CloseIcon, SparklesIcon, TrashIcon, CheckCircleIcon } from './shared/Icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { useTeamMembers } from '../hooks/useTeamMembers';
@@ -9,6 +9,9 @@ import { storage } from '../services/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { updateProfile } from 'firebase/auth';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
+import { Button } from '@/components/ui/button';
+import { DEMO_DATA_REMOVAL_STEPS, removeDemoData } from '../services/seedService';
+import { useToast } from '@/hooks/use-toast';
 
 type SettingsTab = 'profile' | 'team' | 'integrations' | 'billing';
 
@@ -28,10 +31,29 @@ const Settings: React.FC = () => {
   const [profileError, setProfileError] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [isRemoveDemoModalOpen, setIsRemoveDemoModalOpen] = useState(false);
+  const [isRemovingDemoData, setIsRemovingDemoData] = useState(false);
+  const [removalError, setRemovalError] = useState<string | null>(null);
+  const [removalStatuses, setRemovalStatuses] = useState<Record<string, 'pending' | 'running' | 'success' | 'error'>>(() => {
+    const initial: Record<string, 'pending' | 'running' | 'success' | 'error'> = {};
+    DEMO_DATA_REMOVAL_STEPS.forEach(({ id }) => {
+      initial[id] = 'pending';
+    });
+    return initial;
+  });
+
+  const resetRemovalStatuses = () => {
+    const next: Record<string, 'pending' | 'running' | 'success' | 'error'> = {};
+    DEMO_DATA_REMOVAL_STEPS.forEach(({ id }) => {
+      next[id] = 'pending';
+    });
+    setRemovalStatuses(next);
+  };
 
   const { user } = useAuth();
   const { profile, loading: profileLoading, saveProfile } = useUserProfile(user?.uid);
   const { members, pendingMembers, acceptedMembers, loading: membersLoading, addMember, acceptMember, rejectMember } = useTeamMembers(user?.uid);
+  const { toast } = useToast();
 
   const goalOptions = useMemo(
     () => [
@@ -74,12 +96,19 @@ const Settings: React.FC = () => {
     setProfileError(null);
     setIsSavingProfile(true);
     try {
-      await saveProfile({
+      const payload: any = {
         businessName,
         industry,
         goals,
         completedOnboarding: true,
-      });
+      };
+      if (profile?.demoDataAcknowledged !== undefined) {
+        payload.demoDataAcknowledged = profile.demoDataAcknowledged;
+      }
+      if (profile?.demoDataRemovedAt) {
+        payload.demoDataRemovedAt = profile.demoDataRemovedAt;
+      }
+      await saveProfile(payload);
       setProfileStatus('Workspace preferences saved successfully.');
     } catch (error: any) {
       setProfileError(error?.message ?? 'Unable to save profile. Please try again.');
@@ -388,6 +417,57 @@ const Settings: React.FC = () => {
                   {isSavingProfile ? 'Saving...' : 'Save Preferences'}
                 </button>
              </div>
+             <Card>
+               <div className="flex items-center justify-between border-b border-border pb-3 mb-4">
+                 <div>
+                   <h3 className="text-lg font-semibold text-foreground">Demo Data Controls</h3>
+                   <p className="text-sm text-muted-foreground">
+                     Remove the sample workspace data once you’re ready to go live.
+                   </p>
+                 </div>
+                 {profile?.demoDataRemovedAt && (
+                   <span className="text-xs text-emerald-500 font-medium flex items-center gap-1">
+                     <CheckCircleIcon className="w-4 h-4" />
+                     Cleared
+                   </span>
+                 )}
+               </div>
+               <div className="space-y-4">
+                 <div className="text-sm text-muted-foreground leading-relaxed">
+                   <p>
+                     Removing demo data wipes seeded tasks, projects, leads, notifications, analytics, channels, and team members.
+                     Your account, profile, and settings remain untouched.
+                   </p>
+                   {profile?.demoDataRemovedAt && (
+                     <p className="text-xs text-muted-foreground/80 mt-2">
+                       Last cleared: {new Date(profile.demoDataRemovedAt).toLocaleString()}
+                     </p>
+                   )}
+                 </div>
+                 <div className="flex items-center justify-between">
+                   <div className="text-xs uppercase tracking-wide text-muted-foreground">
+                     Status: {profile?.demoDataRemovedAt ? 'No demo data present' : 'Demo data active'}
+                   </div>
+                   <Button
+                     variant="destructive"
+                     size="sm"
+                     className="gap-2"
+                     onClick={() => {
+                       setRemovalError(null);
+                       resetRemovalStatuses();
+                       setIsRemoveDemoModalOpen(true);
+                     }}
+                     disabled={isRemovingDemoData}
+                   >
+                     <TrashIcon className="h-4 w-4" />
+                     Remove demo data
+                   </Button>
+                 </div>
+                 {removalError && (
+                   <p className="text-sm text-destructive">{removalError}</p>
+                 )}
+               </div>
+             </Card>
           </div>
         );
       case 'team':
@@ -556,22 +636,107 @@ const Settings: React.FC = () => {
 
   return (
     <>
-    {isInviteModalOpen && <InviteMemberModal />}
-    <div className="flex flex-col md:flex-row gap-8">
-      <aside className="w-full md:w-1/4">
-        <Card className="p-2 sticky top-8">
-          <nav className="space-y-1">
-            <button onClick={() => setActiveTab('profile')} className={`w-full text-left px-4 py-2 rounded-[var(--radius)] font-medium transition-colors ${activeTab === 'profile' ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted/50'}`}>Profile</button>
-            <button onClick={() => setActiveTab('team')} className={`w-full text-left px-4 py-2 rounded-[var(--radius)] font-medium transition-colors ${activeTab === 'team' ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted/50'}`}>Team Members</button>
-            <button onClick={() => setActiveTab('integrations')} className={`w-full text-left px-4 py-2 rounded-[var(--radius)] font-medium transition-colors ${activeTab === 'integrations' ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted/50'}`}>Integrations</button>
-            <button onClick={() => setActiveTab('billing')} className={`w-full text-left px-4 py-2 rounded-[var(--radius)] font-medium transition-colors ${activeTab === 'billing' ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted/50'}`}>Billing</button>
-          </nav>
-        </Card>
-      </aside>
-      <main className="w-full md:w-3/4">
-        {renderContent()}
-      </main>
-    </div>
+      {isInviteModalOpen && <InviteMemberModal />}
+      {isRemoveDemoModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+          <Card className="w-full max-w-lg animate-slide-in-up space-y-6">
+            <div className="flex items-center gap-3 border-b border-border pb-4">
+              <div className="p-2 rounded-full bg-primary/10">
+                <SparklesIcon className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">Remove demo data</h3>
+                <p className="text-sm text-muted-foreground">
+                  This action deletes all seeded records while keeping your profile and settings intact.
+                </p>
+              </div>
+            </div>
+            <div className="rounded-lg border border-border bg-muted/40 p-4 max-h-64 overflow-y-auto space-y-2">
+              {DEMO_DATA_REMOVAL_STEPS.map(({ id, label }) => {
+                const status = removalStatuses[id];
+                const statusColor =
+                  status === 'success'
+                    ? 'text-emerald-500'
+                    : status === 'error'
+                    ? 'text-destructive'
+                    : status === 'running'
+                    ? 'text-primary'
+                    : 'text-muted-foreground';
+                return (
+                  <div key={id} className="flex items-center justify-between text-sm">
+                    <span className="text-foreground/90">{label}</span>
+                    <span className={`text-xs font-medium uppercase ${statusColor}`}>
+                      {status === 'pending' && 'Pending'}
+                      {status === 'running' && 'Removing'}
+                      {status === 'success' && 'Removed'}
+                      {status === 'error' && 'Error'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {removalError && <p className="text-sm text-destructive">{removalError}</p>}
+            <div className="flex justify-end gap-3 border-t border-border pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (isRemovingDemoData) return;
+                  setIsRemoveDemoModalOpen(false);
+                }}
+                disabled={isRemovingDemoData}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="gap-2"
+                disabled={isRemovingDemoData || !user?.uid}
+                onClick={async () => {
+                  if (!user?.uid) return;
+                  setRemovalError(null);
+                  resetRemovalStatuses();
+                  setIsRemovingDemoData(true);
+                  try {
+                    await removeDemoData(user.uid, ({ step, status }) => {
+                      setRemovalStatuses((prev) => ({
+                        ...prev,
+                        [step]: status,
+                      }));
+                    });
+                    setIsRemoveDemoModalOpen(false);
+                    toast({
+                      title: 'Demo data removed',
+                      description: 'Your workspace is now clean and ready for production data.',
+                    });
+                  } catch (error: any) {
+                    setRemovalError(error?.message ?? 'Failed to remove demo data. Please retry.');
+                  } finally {
+                    setIsRemovingDemoData(false);
+                  }
+                }}
+              >
+                <TrashIcon className="h-4 w-4" />
+                {isRemovingDemoData ? 'Removing…' : 'Remove demo data'}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+      <div className="flex flex-col md:flex-row gap-8">
+        <aside className="w-full md:w-1/4">
+          <Card className="p-2 sticky top-8">
+            <nav className="space-y-1">
+              <button onClick={() => setActiveTab('profile')} className={`w-full text-left px-4 py-2 rounded-[var(--radius)] font-medium transition-colors ${activeTab === 'profile' ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted/50'}`}>Profile</button>
+              <button onClick={() => setActiveTab('team')} className={`w-full text-left px-4 py-2 rounded-[var(--radius)] font-medium transition-colors ${activeTab === 'team' ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted/50'}`}>Team Members</button>
+              <button onClick={() => setActiveTab('integrations')} className={`w-full text-left px-4 py-2 rounded-[var(--radius)] font-medium transition-colors ${activeTab === 'integrations' ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted/50'}`}>Integrations</button>
+              <button onClick={() => setActiveTab('billing')} className={`w-full text-left px-4 py-2 rounded-[var(--radius)] font-medium transition-colors ${activeTab === 'billing' ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted/50'}`}>Billing</button>
+            </nav>
+          </Card>
+        </aside>
+        <main className="w-full md:w-3/4">
+          {renderContent()}
+        </main>
+      </div>
     </>
   );
 };

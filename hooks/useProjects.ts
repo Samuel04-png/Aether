@@ -57,8 +57,6 @@ export const useProjects = (userId?: string) => {
     if (!userId) {
       setProjects([]);
       setLoading(false);
-      setHasMore(false);
-      setLastDocInternal(null);
       return;
     }
 
@@ -240,7 +238,7 @@ export const useProjects = (userId?: string) => {
       setHasMore(snapshot.size === PROJECTS_PAGE_SIZE);
       if (!snapshot.empty) {
         setProjects((prev) => {
-          const map = new Map<string, Project>(prev.map((project) => [project.id, project]));
+          const map = new Map(prev.map((project) => [project.id, project]));
           snapshot.docs.forEach((document) => {
             const data = document.data() as Omit<Project, 'id'> & { id?: string };
             const normalizedTeam = data.team ?? [];
@@ -257,7 +255,7 @@ export const useProjects = (userId?: string) => {
               createdAt: normalizeTimestamp((data as any).createdAt) ?? undefined,
             } as Project);
           });
-          const merged: Project[] = Array.from(map.values());
+          const merged = Array.from(map.values());
           merged.sort((a, b) => {
             const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
             const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -276,9 +274,6 @@ export const useProjects = (userId?: string) => {
   return {
     projects,
     loading,
-    isLoadingMore,
-    hasMore,
-    loadMoreProjects,
     error,
     createProject,
     updateProject,

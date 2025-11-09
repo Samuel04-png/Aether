@@ -1,6 +1,6 @@
 import React from 'react';
 import { ViewType } from './types';
-import { DashboardIcon, ChatIcon, SocialIcon, WebsiteIcon, TasksIcon, ProjectsIcon, LeadsIcon, SettingsIcon, BellIcon } from './components/shared/Icons';
+import { DashboardIcon, ChatIcon, SocialIcon, TasksIcon, ProjectsIcon, LeadsIcon, SettingsIcon, BellIcon } from './components/shared/Icons';
 
 interface NavItem {
   id: ViewType;
@@ -15,7 +15,6 @@ export const NAV_ITEMS: NavItem[] = [
   { id: 'notifications', label: 'Notifications', icon: <BellIcon /> },
   { id: 'leads', label: 'Leads', icon: <LeadsIcon /> },
   { id: 'chat', label: 'Team Chat', icon: <ChatIcon /> },
-  { id: 'social', label: 'Social Analytics', icon: <SocialIcon /> },
-  { id: 'website', label: 'Website Audit', icon: <WebsiteIcon /> },
+  { id: 'insights', label: 'Insights', icon: <SocialIcon /> },
   { id: 'settings', label: 'Settings', icon: <SettingsIcon /> },
 ];

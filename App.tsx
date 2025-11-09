@@ -20,15 +20,19 @@ import { Toaster } from '@/components/ui/toaster';
 import { ViewType } from './types';
 import { useAuth } from './contexts/AuthContext';
 import { useUserProfile } from './hooks/useUserProfile';
-import { seedUserWorkspace } from './services/seedService';
+import { DEMO_DATA_REMOVAL_STEPS, removeDemoData, seedUserWorkspace } from './services/seedService';
 import { Skeleton } from '@/components/ui/skeleton';
 import { LogoSpinner } from '@/components/shared/Logo';
+import Card from './components/shared/Card';
+import { Button } from '@/components/ui/button';
+import { SparklesIcon, TrashIcon } from './components/shared/Icons';
+import { useToast } from '@/hooks/use-toast';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 
 // Lazy load heavy components for better performance
 const Dashboard = lazy(() => import('./components/Dashboard'));
 const TeamChat = lazy(() => import('./components/TeamChat'));
-const SocialAnalytics = lazy(() => import('./components/SocialAnalytics'));
-const WebsiteAudit = lazy(() => import('./components/WebsiteAudit'));
+const Insights = lazy(() => import('./components/Insights'));
 const Tasks = lazy(() => import('./components/Tasks'));
 const Projects = lazy(() => import('./components/Projects'));
 const Settings = lazy(() => import('./components/Settings'));
@@ -42,9 +46,25 @@ const App: React.FC = () => {
   const [isSeedingWorkspace, setIsSeedingWorkspace] = useState(false);
   const [showLanding, setShowLanding] = useState(true);
   const [showAuthMode, setShowAuthMode] = useState<'signin' | 'signup'>('signup');
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+  const [showDemoDataDialog, setShowDemoDataDialog] = useState(false);
+  const [isRemovingDemoData, setIsRemovingDemoData] = useState(false);
+  const [demoRemovalError, setDemoRemovalError] = useState<string | null>(null);
+  const createInitialDemoState = () =>
+    DEMO_DATA_REMOVAL_STEPS.reduce<Record<string, 'pending' | 'running' | 'success' | 'error'>>(
+      (acc, step) => {
+        acc[step.id] = 'pending';
+        return acc;
+      },
+      {},
+    );
+  const [demoRemovalStatuses, setDemoRemovalStatuses] = useState<Record<string, 'pending' | 'running' | 'success' | 'error'>>(
+    () => createInitialDemoState(),
+  );
 
   const { user, initializing } = useAuth();
   const { profile, loading: profileLoading, saveProfile } = useUserProfile(user?.uid);
+  const { toast } = useToast();
   // Developer signature
   React.useEffect(() => {
     console.log(
@@ -118,14 +138,65 @@ const App: React.FC = () => {
     });
   };
 
+  useEffect(() => {
+    if (!profile || !user) {
+      return;
+    }
+    if (profile.demoDataAcknowledged) {
+      setShowDemoDataDialog(false);
+      return;
+    }
+    setShowDemoDataDialog(true);
+  }, [profile, user]);
+
+  const handleDismissDemoData = async () => {
+    if (!user || !profile) {
+      setShowDemoDataDialog(false);
+      return;
+    }
+    try {
+      await saveProfile({ ...profile, demoDataAcknowledged: true });
+      setShowDemoDataDialog(false);
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Unable to update workspace',
+        description: error?.message ?? 'Please try again shortly.',
+      });
+    }
+  };
+
+  const handleRemoveDemoData = async () => {
+    if (!user?.uid) return;
+    setDemoRemovalError(null);
+    setIsRemovingDemoData(true);
+    setDemoRemovalStatuses(createInitialDemoState());
+    try {
+      await removeDemoData(user.uid, ({ step, status }) => {
+        setDemoRemovalStatuses((prev) => ({
+          ...prev,
+          [step]: status,
+        }));
+      });
+      toast({
+        title: 'Demo data removed',
+        description: 'Your workspace now only includes the data you add.',
+      });
+      setShowDemoDataDialog(false);
+    } catch (error: any) {
+      setDemoRemovalError(error?.message ?? 'Failed to remove demo data. Please try again.');
+    } finally {
+      setIsRemovingDemoData(false);
+    }
+  };
+
   // Lazy load components for better performance
   const renderContent = () => {
     const Component = (() => {
       switch (activeView) {
         case 'dashboard': return Dashboard;
         case 'chat': return TeamChat;
-        case 'social': return SocialAnalytics;
-        case 'website': return WebsiteAudit;
+        case 'insights': return Insights;
         case 'tasks': return Tasks;
         case 'projects': return Projects;
         case 'leads': return Leads;
@@ -226,16 +297,26 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex h-screen bg-background font-sans text-foreground">
-      <Sidebar activeView={activeView} setActiveView={setActiveView} />
+    <div className="flex min-h-screen bg-background font-sans text-foreground">
+      <div className="hidden lg:flex">
+        <Sidebar
+          activeView={activeView}
+          setActiveView={setActiveView}
+          className="h-screen"
+        />
+      </div>
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        <Header activeView={activeView} onToggleNotifications={() => setIsNotificationsOpen(!isNotificationsOpen)} />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-background/40 backdrop-blur-2xl p-6 md:p-8 lg:p-10">
+        <Header
+          activeView={activeView}
+          onToggleNotifications={() => setIsNotificationsOpen(!isNotificationsOpen)}
+          onOpenMobileNav={() => setIsMobileNavOpen(true)}
+        />
+        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-background/40 backdrop-blur-2xl p-4 md:p-6 lg:p-10">
           <div className="animate-fade-in">
             {renderContent()}
           </div>
           {/* Watermark */}
-          <div className="fixed bottom-2 right-4 text-[9px] text-muted-foreground/20 pointer-events-none select-none opacity-30 hover:opacity-60 transition-opacity">
+          <div className="hidden md:block fixed bottom-2 right-4 text-[9px] text-muted-foreground/20 pointer-events-none select-none opacity-30 hover:opacity-60 transition-opacity">
             Byte&Berry
           </div>
         </main>
@@ -243,6 +324,91 @@ const App: React.FC = () => {
         {/* Toasts (shadcn) */}
         <Toaster />
       </div>
+      <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
+        <SheetContent side="left" className="p-0 w-72 sm:max-w-sm">
+          <SheetHeader className="px-6 pt-6 pb-4">
+            <SheetTitle>Navigate</SheetTitle>
+          </SheetHeader>
+          <div className="border-t border-border/60">
+          <Sidebar
+            activeView={activeView}
+            setActiveView={(view) => {
+              setActiveView(view);
+              setIsMobileNavOpen(false);
+            }}
+            className="w-full h-full bg-sidebar/95"
+          />
+          </div>
+        </SheetContent>
+      </Sheet>
+      {showDemoDataDialog && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/70 backdrop-blur">
+          <Card className="w-full max-w-lg animate-slide-in-up">
+            <div className="flex items-center gap-3 border-b border-border pb-4">
+              <div className="p-2 rounded-full bg-primary/10">
+                <SparklesIcon className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">Your workspace is preloaded with demo data</h3>
+                <p className="text-sm text-muted-foreground">Clear it now or keep it while you explore Aether.</p>
+              </div>
+            </div>
+            <div className="py-6 space-y-4">
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                We’ve added sample tasks, projects, leads, and analytics so you can see the product in action. Remove them at any time—your profile and settings stay intact.
+              </p>
+              {(isRemovingDemoData || demoRemovalStatuses.profileUpdate === 'success') && (
+                <div className="rounded-lg border border-border bg-muted/40 p-4">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Removal progress</p>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {DEMO_DATA_REMOVAL_STEPS.map(({ id, label }) => {
+                      const status = demoRemovalStatuses[id];
+                      const statusColor =
+                        status === 'success'
+                          ? 'text-emerald-500'
+                          : status === 'error'
+                          ? 'text-destructive'
+                          : status === 'running'
+                          ? 'text-primary'
+                          : 'text-muted-foreground';
+                      return (
+                        <div key={id} className="flex items-center justify-between text-sm">
+                          <span className="text-foreground/90">{label}</span>
+                          <span className={`text-xs font-medium uppercase ${statusColor}`}>
+                            {status === 'pending' && 'Pending'}
+                            {status === 'running' && 'Removing'}
+                            {status === 'success' && 'Removed'}
+                            {status === 'error' && 'Error'}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {demoRemovalError && <p className="text-sm text-destructive">{demoRemovalError}</p>}
+            </div>
+            <div className="flex justify-between border-t border-border pt-4">
+              <Button
+                variant="outline"
+                onClick={handleDismissDemoData}
+                disabled={isRemovingDemoData}
+              >
+                Keep demo data
+              </Button>
+              <Button
+                variant="destructive"
+                className="gap-2"
+                onClick={handleRemoveDemoData}
+                disabled={isRemovingDemoData}
+              >
+                <TrashIcon className="h-4 w-4" />
+                {isRemovingDemoData ? 'Removing…' : 'Remove demo data now'}
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

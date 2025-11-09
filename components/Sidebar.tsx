@@ -15,19 +15,19 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { motion, AnimatePresence } from 'framer-motion';
-import { slideLeft, staggerContainer, staggerItem, transitions, hoverLift } from '@/lib/motion';
+import { slideLeft, staggerContainer, staggerItem, transitions } from '@/lib/motion';
 import { cn } from '@/lib/utils';
-import { useTheme } from '@/contexts/ThemeContext';
+import Logo from '@/components/shared/Logo';
 
 interface SidebarProps {
   activeView: ViewType;
   setActiveView: (view: ViewType) => void;
+  className?: string;
+  onNavigate?: (view: ViewType) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, className, onNavigate }) => {
   const { user, signOutUser } = useAuth();
-  const { theme } = useTheme();
-  const logoSrc = theme === 'dark' ? '/aether-logo/Logo.png' : '/aether-logo/Logo_lightmode.png';
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -36,7 +36,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView }) => {
         animate={slideLeft.animate}
         exit={slideLeft.exit}
         transition={transitions.smooth}
-        className="w-64 bg-sidebar/98 backdrop-blur-xl flex-shrink-0 p-6 flex flex-col justify-between border-r border-border/60 shadow-2xl z-20"
+        className={cn(
+          "w-64 bg-sidebar/98 backdrop-blur-xl flex-shrink-0 p-6 flex flex-col justify-between border-r border-border/60 shadow-2xl z-20",
+          className,
+        )}
       >
         <div>
           <motion.div
@@ -45,14 +48,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView }) => {
             transition={transitions.quick}
             className="flex items-center gap-3 px-4 py-6 mb-4 hover:opacity-90 transition-opacity cursor-pointer"
           >
-            <img 
-              src={logoSrc}
-              alt="Aether Logo" 
-              className="h-10 w-10 drop-shadow-lg flex-shrink-0"
-            />
-            <span className="text-2xl font-bold bg-gradient-hero bg-clip-text text-transparent tracking-tight">
-              AETHER
-            </span>
+            <Logo variant="compact" animated />
           </motion.div>
           
           <motion.nav
@@ -62,49 +58,66 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView }) => {
             className="px-2"
           >
             <ul className="space-y-2">
-              {NAV_ITEMS.map((item, index) => (
-                <motion.li
-                  key={item.id}
-                  variants={staggerItem}
-                  transition={transitions.quick}
-                >
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="relative">
-                        <Button
-                          variant={activeView === item.id ? 'secondary' : 'ghost'}
-                          size="default"
-                          onClick={() => setActiveView(item.id)}
-                          className={cn(
-                            "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl justify-start transition-all duration-200 relative group",
-                            activeView === item.id 
-                              ? "bg-gradient-to-r from-primary/20 to-primary/10 text-primary shadow-lg shadow-primary/20 border-l-4 border-primary font-semibold" 
-                              : "hover:bg-accent/60 hover:shadow-md hover:translate-x-1 text-foreground/80 hover:text-foreground"
-                          )}
-                        >
-                          <span className={cn(
-                            "flex-shrink-0 transition-all duration-200",
-                            activeView === item.id 
-                              ? "text-primary scale-110" 
-                              : "text-muted-foreground group-hover:text-primary group-hover:scale-105"
-                          )}>
-                            {item.icon}
-                          </span>
-                          <span className={cn(
-                            "font-medium text-sm transition-all duration-200",
-                            activeView === item.id && "font-semibold"
-                          )}>
-                            {item.label}
-                          </span>
-                        </Button>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="ml-2">
-                      {item.label}
-                    </TooltipContent>
-                  </Tooltip>
-                </motion.li>
-              ))}
+              {NAV_ITEMS.map((item) => {
+                const isActive = activeView === item.id;
+                const isInsights = item.id === 'insights';
+
+                return (
+                  <motion.li
+                    key={item.id}
+                    variants={staggerItem}
+                    transition={transitions.quick}
+                  >
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="relative">
+                          <Button
+                            variant={isActive ? 'secondary' : 'ghost'}
+                            size="default"
+                          onClick={() => {
+                            setActiveView(item.id);
+                            onNavigate?.(item.id);
+                          }}
+                            className={cn(
+                              "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl justify-start transition-all duration-200 relative group",
+                              isActive
+                                ? "bg-gradient-to-r from-primary/20 to-primary/10 text-primary shadow-lg shadow-primary/20 border-l-4 border-primary font-semibold"
+                                : isInsights
+                                  ? "hover:bg-accent/50 hover:shadow-md hover:translate-x-1 text-foreground/90 hover:text-foreground"
+                                  : "hover:bg-accent/60 hover:shadow-md hover:translate-x-1 text-foreground/80 hover:text-foreground"
+                            )}
+                          >
+                            <span
+                              className={cn(
+                                "flex-shrink-0 transition-all duration-200",
+                                isActive
+                                  ? "text-primary scale-110"
+                                  : isInsights
+                                    ? "text-foreground/80 group-hover:text-primary group-hover:scale-105"
+                                    : "text-muted-foreground group-hover:text-primary group-hover:scale-105"
+                              )}
+                            >
+                              {item.icon}
+                            </span>
+                            <span
+                              className={cn(
+                                "font-medium text-sm transition-all duration-200",
+                                isActive && "font-semibold text-primary",
+                                !isActive && isInsights && "text-foreground/90"
+                              )}
+                            >
+                              {item.label}
+                            </span>
+                          </Button>
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" className="ml-2">
+                        {item.label}
+                      </TooltipContent>
+                    </Tooltip>
+                  </motion.li>
+                );
+              })}
             </ul>
           </motion.nav>
         </div>

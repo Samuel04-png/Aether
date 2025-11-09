@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { SparklesIcon } from './shared/Icons';
 import Logo from '@/components/shared/Logo';
@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
 import { fadeInUp, staggerContainer, staggerItem, transitions } from '@/lib/motion';
 import { ArrowRight, Check, Sparkles, Zap, BarChart3, Users, MessageSquare, Calendar, TrendingUp, Shield, Star, Rocket } from 'lucide-react';
 
@@ -17,6 +18,71 @@ interface LandingProps {
 }
 
 const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [feedback, setFeedback] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const { toast } = useToast();
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!name || !email || !feedback) {
+      setStatusMessage({ type: 'error', text: 'Please fill out all required fields before submitting.' });
+      toast({
+        title: 'Missing information',
+        description: 'Please complete your name, email, and feedback before sending.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setStatusMessage(null);
+
+    try {
+      const response = await fetch('https://impeldown.app.n8n.cloud/webhook-test/aether-feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name,
+          email,
+          feedback,
+          timestamp: new Date().toISOString(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Request failed with status ${response.status}`);
+      }
+
+      setName('');
+      setEmail('');
+      setFeedback('');
+      setStatusMessage({ type: 'success', text: 'Thanks for sharing! We appreciate your feedback.' });
+      toast({
+        title: 'Feedback sent',
+        description: 'Thanks for helping us shape Aether.',
+      });
+    } catch (error) {
+      console.error('Feedback submission failed', error);
+      setStatusMessage({
+        type: 'error',
+        text: 'Something went wrong sending your feedback. Please try again in a moment.',
+      });
+      toast({
+        title: 'Submission failed',
+        description: 'We could not send your feedback. Please try again shortly.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const features = [
     {
       icon: Sparkles,
@@ -567,14 +633,31 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
                 <CardDescription className="text-base mb-6 text-white/70">
                   We're building Aether for entrepreneurs like you. Your feedback shapes our roadmap and helps us create the perfect business copilot.
                 </CardDescription>
-                <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+                <form className="space-y-4" onSubmit={handleSubmit}>
                   <div className="space-y-2">
                     <Label htmlFor="feedback-name" className="text-white/90 font-semibold">Your Name</Label>
-                    <Input id="feedback-name" placeholder="John Doe" className="bg-white/10 border-white/20 text-white placeholder:text-white/40 h-12" />
+                    <Input
+                      id="feedback-name"
+                      placeholder="John Doe"
+                      className="bg-white/10 border-white/20 text-white placeholder:text-white/40 h-12"
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      required
+                      disabled={isSubmitting}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="feedback-email" className="text-white/90 font-semibold">Your Email</Label>
-                    <Input id="feedback-email" type="email" placeholder="john@example.com" className="bg-white/10 border-white/20 text-white placeholder:text-white/40 h-12" />
+                    <Input
+                      id="feedback-email"
+                      type="email"
+                      placeholder="john@example.com"
+                      className="bg-white/10 border-white/20 text-white placeholder:text-white/40 h-12"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      required
+                      disabled={isSubmitting}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="feedback-message" className="text-white/90 font-semibold">Your Feedback</Label>
@@ -583,13 +666,31 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
                       placeholder="What features would you love to see in Aether?"
                       rows={4}
                       className="bg-white/10 border-white/20 text-white placeholder:text-white/40"
+                      value={feedback}
+                      onChange={(event) => setFeedback(event.target.value)}
+                      required
+                      disabled={isSubmitting}
                     />
                   </div>
                   <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                    <Button type="submit" className="w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-400 hover:via-purple-400 hover:to-pink-400 text-white shadow-lg rounded-xl font-bold" size="lg">
-                      Send Feedback
+                    <Button
+                      type="submit"
+                      className="w-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 hover:from-indigo-400 hover:via-purple-400 hover:to-pink-400 text-white shadow-lg rounded-xl font-bold disabled:opacity-70 disabled:cursor-not-allowed"
+                      size="lg"
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? 'Sending...' : 'Send Feedback'}
                     </Button>
                   </motion.div>
+                  {statusMessage && (
+                    <p
+                      className={`text-sm font-medium ${
+                        statusMessage.type === 'success' ? 'text-emerald-300' : 'text-rose-300'
+                      }`}
+                    >
+                      {statusMessage.text}
+                    </p>
+                  )}
                 </form>
               </CardContent>
             </Card>
