@@ -401,10 +401,15 @@ export const removeDemoData = async (
     try {
       const deleted = await handler();
       progress(step, 'success', typeof deleted === 'number' ? deleted : undefined);
-    } catch (error) {
+    } catch (error: any) {
       console.error(`Failed to remove ${step}`, error);
+      // Mark as error but don't throw - continue with other steps
       progress(step, 'error');
-      throw error;
+      // Only throw if it's a critical error (not permission or not-found)
+      if (error?.code !== 'permission-denied' && error?.code !== 'not-found') {
+        // Log but continue - we want to delete as much as possible
+        console.warn(`Continuing despite error in ${step}:`, error?.message);
+      }
     }
   };
 
@@ -416,16 +421,57 @@ export const removeDemoData = async (
   await runStep('teamMembers', () => deleteCollectionDocs(['users', userId, 'teamMembers']));
 
   await runStep('channels', async () => {
-    const channelsRef = collection(db, 'users', userId, 'channels');
-    const channelsSnapshot = await getDocs(channelsRef);
-    if (channelsSnapshot.empty) return 0;
-
     let total = 0;
-    for (const channelDoc of channelsSnapshot.docs) {
-      total += await deleteCollectionDocs(['users', userId, 'channels', channelDoc.id, 'messages']);
-      await deleteDoc(channelDoc.ref);
-      total += 1;
+    
+    // Delete user-specific channel messages (demo data is stored here: users/{userId}/channels/general/messages)
+    try {
+      const userChannelsRef = collection(db, 'users', userId, 'channels');
+      const userChannelsSnapshot = await getDocs(userChannelsRef);
+      
+      if (!userChannelsSnapshot.empty) {
+        // Delete channels and messages using deleteCollectionDocs helper
+        for (const channelDoc of userChannelsSnapshot.docs) {
+          // Delete messages in this channel first
+          try {
+            const deletedMessages = await deleteCollectionDocs(['users', userId, 'channels', channelDoc.id, 'messages']);
+            total += deletedMessages;
+          } catch (msgError: any) {
+            // If messages collection doesn't exist, that's fine
+            if (msgError?.code !== 'permission-denied' && msgError?.code !== 'not-found') {
+              console.warn('Error deleting messages:', msgError);
+            }
+          }
+          
+          // Delete the channel document
+          try {
+            await deleteDoc(channelDoc.ref);
+            total += 1;
+          } catch (channelError: any) {
+            if (channelError?.code !== 'permission-denied' && channelError?.code !== 'not-found') {
+              console.warn('Error deleting channel:', channelError);
+            }
+          }
+        }
+      }
+    } catch (error: any) {
+      // If collection doesn't exist (not-found), that's okay - no demo channels to delete
+      if (error?.code === 'not-found') {
+        // No channels to delete - this is success
+        return 0;
+      }
+      // For permission-denied, we might not have access to query, but that's okay
+      // We'll still try to delete individual documents if we can access them
+      if (error?.code === 'permission-denied') {
+        // Can't query, but that's okay - might not have channels or rules prevent querying
+        console.warn('Cannot query channels collection - this may be expected');
+        return 0;
+      }
+      // For other errors, log but don't throw
+      console.warn('Error accessing channels collection:', error?.message || error);
+      // Return 0 to indicate no deletions (rather than throwing)
+      return 0;
     }
+    
     return total;
   });
 

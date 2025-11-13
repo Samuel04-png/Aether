@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -22,6 +22,8 @@ import { useTeamMembers } from '../hooks/useTeamMembers';
 import { useProjectInvites } from '../hooks/useProjectInvites';
 import { useUserSearch } from '../hooks/useUserSearch';
 import { cn } from '@/lib/utils';
+import TaskStatusDialog from './TaskStatusDialog';
+import { PageContainer, PageHeader, PageSection } from './layout/Page';
 
 interface ProjectTaskColumnProps {
     status: TaskStatus;
@@ -32,6 +34,7 @@ interface ProjectTaskColumnProps {
     onDrop: (event: React.DragEvent<HTMLDivElement>, status: TaskStatus) => void;
     onAssign: (taskId: string, memberId: string | null) => void;
     onDeleteTask: (taskId: string) => void;
+    onTaskClick: (task: Task) => void;
     canManage?: boolean;
 }
 
@@ -44,6 +47,7 @@ const ProjectTaskColumn: React.FC<ProjectTaskColumnProps> = ({
     onDrop,
     onAssign,
     onDeleteTask,
+    onTaskClick,
     canManage = true,
 }) => {
     const titleMap: Record<TaskStatus, string> = { todo: 'To Do', inprogress: 'In Progress', done: 'Done' };
@@ -70,11 +74,12 @@ const ProjectTaskColumn: React.FC<ProjectTaskColumnProps> = ({
                                 onDragStart(task.id);
                             }
                         }}
+                        onClick={() => onTaskClick(task)}
                         className={cn(
-                            "p-3 bg-card border border-border rounded-md shadow-sm transition-shadow",
-                            canManage ? "cursor-grab active:cursor-grabbing hover:shadow-md" : "cursor-default"
+                            "p-3 bg-card border border-border rounded-md shadow-sm transition-shadow cursor-pointer hover:shadow-md",
+                            canManage && "active:cursor-grabbing"
                         )}
-                        whileHover={{ scale: canManage ? 1.01 : 1 }}
+                        whileHover={{ scale: 1.01 }}
                         whileDrag={canManage ? { scale: 0.98, opacity: 0.8 } : undefined}
                     >
                         <div className="flex items-start justify-between gap-2">
@@ -172,6 +177,16 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
     const [inviteMessage, setInviteMessage] = useState('');
     const [isDeleteProjectDialogOpen, setIsDeleteProjectDialogOpen] = useState(false);
     const [isDeletingProject, setIsDeletingProject] = useState(false);
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
+
+    // Calculate dynamic progress based on task completion
+    const calculatedProgress = useMemo(() => {
+        const totalTasks = project.tasks.length;
+        if (totalTasks === 0) return 0;
+        const completedTasks = project.tasks.filter(task => task.status === 'done').length;
+        return Math.round((completedTasks / totalTasks) * 100);
+    }, [project.tasks]);
 
     const availableMembers = useMemo(
         () => allMembers.filter((member) => {
@@ -186,6 +201,33 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
     const canManageProject = user?.uid === (project.ownerId ?? user?.uid);
     const canManageTasks = canManageProject || (Array.isArray(project.team) && project.team.some((member) => member.id === user?.uid));
 
+    const totalProjectTasks = project.tasks.length;
+    const activeProjectTasks = project.tasks.filter((task) => task.status !== 'done').length;
+    const completedProjectTasks = project.tasks.filter((task) => task.status === 'done').length;
+
+    const projectStats = [
+        {
+            label: 'Progress',
+            value: `${calculatedProgress}%`,
+            trend: calculatedProgress >= 70 ? 'up' : calculatedProgress <= 20 ? 'down' : 'steady',
+            helper: project.status ?? 'Status not set',
+        },
+        {
+            label: 'Active tasks',
+            value: `${activeProjectTasks}`,
+            trend: activeProjectTasks === 0 ? 'steady' : 'up',
+            helper: `${completedProjectTasks} completed`,
+        },
+        {
+            label: 'Team members',
+            value: `${project.team.length}`,
+            trend: project.team.length > 3 ? 'up' : 'steady',
+            helper: project.team.length > 0 ? 'Collaborators onboard' : 'Invite your team',
+        },
+    ] as const;
+
+    const statusBadgeVariant = project.status === 'On Track' ? 'default' : project.status === 'At Risk' ? 'destructive' : 'secondary';
+
     const handleTaskDrop = (event: React.DragEvent<HTMLDivElement>, status: TaskStatus) => {
         if (!canManageTasks) return;
         event.preventDefault();
@@ -193,7 +235,13 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
             const updatedTasks = project.tasks.map((task) =>
                 task.id === draggedTaskId ? { ...task, status } : task
             );
-            onUpdate(project.id, { tasks: updatedTasks });
+            
+            // Calculate new progress
+            const totalTasks = updatedTasks.length;
+            const completedTasks = updatedTasks.filter(task => task.status === 'done').length;
+            const newProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+            
+            onUpdate(project.id, { tasks: updatedTasks, progress: newProgress });
             setDraggedTaskId(null);
         }
     };
@@ -246,6 +294,37 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                 variant: 'destructive',
                 title: 'Error',
                 description: error?.message ?? 'Failed to delete task.',
+            });
+        }
+    };
+
+    const handleTaskClick = (task: Task) => {
+        setSelectedTask(task);
+        setIsStatusDialogOpen(true);
+    };
+
+    const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
+        if (!canManageTasks) return;
+        const updatedTasks = project.tasks.map((task) =>
+            task.id === taskId ? { ...task, status: newStatus } : task
+        );
+        
+        // Calculate new progress
+        const totalTasks = updatedTasks.length;
+        const completedTasks = updatedTasks.filter(task => task.status === 'done').length;
+        const newProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+        
+        try {
+            await onUpdate(project.id, { tasks: updatedTasks, progress: newProgress });
+            toast({
+                title: 'Status Updated',
+                description: `Task status changed to ${newStatus === 'todo' ? 'To Do' : newStatus === 'inprogress' ? 'In Progress' : 'Done'}`,
+            });
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: error?.message ?? 'Failed to update task status.',
             });
         }
     };
@@ -654,6 +733,13 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                 </DialogContent>
             </Dialog>
 
+            <TaskStatusDialog
+                open={isStatusDialogOpen}
+                onOpenChange={setIsStatusDialogOpen}
+                task={selectedTask}
+                onStatusChange={handleStatusChange}
+            />
+
             <Dialog open={isDeleteProjectDialogOpen} onOpenChange={setIsDeleteProjectDialogOpen}>
                 <DialogContent className="sm:max-w-[420px]">
                     <DialogHeader>
@@ -681,79 +767,74 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                 </DialogContent>
             </Dialog>
         
-            <motion.div
-                initial={fadeInUp.initial}
-                animate={fadeInUp.animate}
-                exit={fadeInUp.exit}
-                transition={transitions.quick}
-                className="space-y-6"
-            >
-                <Button variant="ghost" onClick={onBack} className="gap-2">
-                    <ChevronLeftIcon className="h-4 w-4" />
-                    Back to All Projects
-                </Button>
-                
-                <Card>
-                    <CardHeader>
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                            <div>
-                                <CardTitle className="text-3xl">{project.name}</CardTitle>
-                                <CardDescription className="mt-2 max-w-2xl">
-                                    {project.description}
-                                </CardDescription>
-                            </div>
-                            <div className="flex flex-col items-end gap-3">
-                                <Badge
-                                    variant={
-                                        project.status === 'On Track'
-                                            ? 'default'
-                                            : project.status === 'At Risk'
-                                            ? 'destructive'
-                                            : 'secondary'
-                                    }
-                                >
-                                    {project.status}
-                                </Badge>
-                                {canManageProject && (
-                                    <div className="flex flex-wrap justify-end gap-2">
-                                        <Button
-                                            variant="outline"
-                                            className="gap-2"
-                                            onClick={() => setIsInviteModalOpen(true)}
-                                        >
-                                            <EnvelopeIcon className="h-4 w-4" />
-                                            Invite Member
-                                        </Button>
-                                        <Button
-                                            variant="destructive"
-                                            className="gap-2"
-                                            onClick={() => setIsDeleteProjectDialogOpen(true)}
-                                        >
+            <PageContainer className="space-y-10 pb-24">
+                <div>
+                    <Button variant="ghost" onClick={onBack} className="gap-2">
+                        <ChevronLeftIcon className="h-4 w-4" />
+                        Back to projects
+                    </Button>
+                </div>
+
+                <PageHeader
+                    eyebrow="Project workspace"
+                    title={project.name}
+                    subtitle={project.description || 'No description provided yet.'}
+                    actions={
+                        <div className="flex flex-wrap items-center gap-3">
+                            {canManageTasks && (
+                                <Button className="gap-2" onClick={() => setIsAddTaskModalOpen(true)}>
+                                    <PlusIcon className="h-4 w-4" />
+                                    Add task
+                                </Button>
+                            )}
+                            {canManageProject && (
+                                <Button variant="outline" className="gap-2" onClick={() => setIsInviteModalOpen(true)}>
+                                    <EnvelopeIcon className="h-4 w-4" />
+                                    Invite member
+                                </Button>
+                            )}
+                        </div>
+                    }
+                    stats={projectStats}
+                />
+
+                <PageSection surface="minimal" padded={false}>
+                    <Card className="border-border/60 bg-card/80 backdrop-blur-sm shadow-md">
+                        <CardHeader>
+                            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                                <div className="space-y-2">
+                                    <CardTitle className="text-sm font-semibold uppercase tracking-[0.25em] text-muted-foreground">Delivery progress</CardTitle>
+                                    <CardDescription>Visualise completion against your planned workload.</CardDescription>
+                                </div>
+                                <div className="flex flex-wrap gap-2">
+                                    <Badge variant={statusBadgeVariant}>{project.status ?? 'Status pending'}</Badge>
+                                    {canManageProject && (
+                                        <Button variant="destructive" className="gap-2" onClick={() => setIsDeleteProjectDialogOpen(true)}>
                                             <TrashIcon className="h-4 w-4" />
-                                            Delete Project
+                                            Delete project
                                         </Button>
-                                    </div>
-                                )}
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="space-y-2">
-                            <div className="flex justify-between text-sm text-muted-foreground">
-                                <span>Overall Progress</span>
-                                <span className="font-semibold text-foreground">{project.progress}%</span>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="space-y-4">
+                                <div className="flex flex-wrap items-center justify-between text-sm text-muted-foreground">
+                                    <span>{calculatedProgress}% complete</span>
+                                    <span>{totalProjectTasks} tasks • {completedProjectTasks} done</span>
+                                </div>
+                                <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
+                                    <motion.div
+                                        className="h-full rounded-full bg-primary"
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${calculatedProgress}%` }}
+                                        transition={{ duration: 0.6, ease: 'easeOut' }}
+                                    />
+                                </div>
                             </div>
-                            <div className="w-full bg-muted rounded-full h-2.5">
-                                <motion.div
-                                    className="bg-primary h-2.5 rounded-full"
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${project.progress}%` }}
-                                    transition={{ duration: 0.5, ease: 'easeOut' }}
-                                />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                </PageSection>
 
                 <Card>
                     <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
@@ -783,14 +864,10 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                                 <div className="space-y-4">
                                     {canManageTasks && (
                                         <div className="flex justify-end">
-                                            <Dialog open={isAddTaskModalOpen} onOpenChange={setIsAddTaskModalOpen}>
-                                                <DialogTrigger asChild>
-                                                    <Button className="gap-2">
-                                                        <PlusIcon className="h-4 w-4" />
-                                                        Add Task
-                                                    </Button>
-                                                </DialogTrigger>
-                                            </Dialog>
+                                            <Button className="gap-2" onClick={() => setIsAddTaskModalOpen(true)}>
+                                                <PlusIcon className="h-4 w-4" />
+                                                Add Task
+                                            </Button>
                                         </div>
                                     )}
                                     <div className="flex gap-6">
@@ -803,6 +880,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                                             onDrop={handleTaskDrop}
                                             onAssign={handleAssignTask}
                                             onDeleteTask={handleDeleteTask}
+                                            onTaskClick={handleTaskClick}
                                             canManage={canManageTasks}
                                         />
                                         <ProjectTaskColumn
@@ -814,6 +892,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                                             onDrop={handleTaskDrop}
                                             onAssign={handleAssignTask}
                                             onDeleteTask={handleDeleteTask}
+                                            onTaskClick={handleTaskClick}
                                             canManage={canManageTasks}
                                         />
                                         <ProjectTaskColumn
@@ -825,6 +904,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                                             onDrop={handleTaskDrop}
                                             onAssign={handleAssignTask}
                                             onDeleteTask={handleDeleteTask}
+                                            onTaskClick={handleTaskClick}
                                             canManage={canManageTasks}
                                         />
                                     </div>
@@ -851,24 +931,15 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                                                     }}
                                                 >
                                                     <PlusIcon className="h-4 w-4" />
-                                                    Add from Team ({availableMembers.length})
+                                                    Add from team ({availableMembers.length})
                                                 </Button>
                                             )}
-                                            <Dialog open={isInviteModalOpen} onOpenChange={(open) => {
-                                                setIsInviteModalOpen(open);
-                                                if (!open) {
-                                                    setInviteSearchTerm('');
-                                                    setSelectedUserEmail('');
-                                                    clearResults();
-                                                }
-                                            }}>
-                                                <DialogTrigger asChild>
-                                                    <Button className="gap-2">
-                                                        <EnvelopeIcon className="h-4 w-4" />
-                                                        Invite New Member
-                                                    </Button>
-                                                </DialogTrigger>
-                                            </Dialog>
+                                            {canManageProject && (
+                                                <Button className="gap-2" onClick={() => setIsInviteModalOpen(true)}>
+                                                    <EnvelopeIcon className="h-4 w-4" />
+                                                    Invite new member
+                                                </Button>
+                                            )}
                                         </div>
                                     )}
                                     
@@ -1042,7 +1113,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                         </CardContent>
                     </Tabs>
                 </Card>
-            </motion.div>
+            </PageContainer>
         </>
     );
 };
@@ -1073,6 +1144,40 @@ const Projects: React.FC = () => {
             ),
         [projects, searchTerm]
     );
+
+    const totalProjects = projects.length;
+    const activeProjects = projects.filter((project) => project.status !== 'Completed').length;
+    const progressSnapshots = projects.map((project) => {
+        const totalTasks = project.tasks.length;
+        const completedTasks = project.tasks.filter((task) => task.status === 'done').length;
+        if (totalTasks === 0) {
+            return typeof project.progress === 'number' ? project.progress : 0;
+        }
+        return Math.round((completedTasks / totalTasks) * 100);
+    });
+    const averageProgress = progressSnapshots.length > 0 ? Math.round(progressSnapshots.reduce((sum, value) => sum + value, 0) / progressSnapshots.length) : 0;
+    const collaborators = Array.from(new Set(projects.flatMap((project) => project.team.map((member) => member.id)))).length;
+
+    const projectsStats = [
+        {
+            label: 'Active projects',
+            value: `${activeProjects}`,
+            trend: activeProjects > 0 ? 'up' : 'steady',
+            helper: `${totalProjects} total`,
+        },
+        {
+            label: 'Average progress',
+            value: `${averageProgress}%`,
+            trend: averageProgress >= 70 ? 'up' : averageProgress <= 30 ? 'down' : 'steady',
+            helper: 'Across all initiatives',
+        },
+        {
+            label: 'Collaborators',
+            value: `${collaborators}`,
+            trend: collaborators > 0 ? 'up' : 'steady',
+            helper: `${acceptedMembers.length} in workspace`,
+        },
+    ] as const;
 
     const handleCreateProject = async () => {
         if (!newProjectName.trim()) {
@@ -1173,158 +1278,159 @@ const Projects: React.FC = () => {
 
     return (
         <>
-            <motion.div
-                initial={fadeInUp.initial}
-                animate={fadeInUp.animate}
-                exit={fadeInUp.exit}
-                transition={transitions.quick}
-                className="space-y-6"
-            >
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div className="flex-1 min-w-0">
-                        <motion.h1
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={transitions.quick}
-                            className="text-2xl sm:text-3xl font-bold text-foreground"
-                        >
-                            Projects
-                        </motion.h1>
-                        <p className="text-sm sm:text-base text-muted-foreground mt-1">Manage all your initiatives from one central hub.</p>
-                    </div>
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+            <PageContainer className="space-y-12 pb-24">
+                <PageHeader
+                    eyebrow="Portfolio"
+                    title="Projects"
+                    subtitle="Plan, track, and collaborate on every initiative."
+                    actions={
+                        <Button className="gap-2" onClick={() => setIsCreateModalOpen(true)}>
+                            <PlusIcon className="h-4 w-4" />
+                            New project
+                        </Button>
+                    }
+                    stats={projectsStats}
+                />
+
+                <PageSection
+                    title="In-flight initiatives"
+                    description="Stay on top of delivery momentum, owners, and team capacity."
+                    surface="minimal"
+                >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <SearchInput
-                            placeholder="Filter projects..."
+                            placeholder="Search projects..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            containerClassName="w-full sm:w-64"
+                            containerClassName="w-full sm:w-72"
                         />
-                        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-                            <DialogTrigger asChild>
-                                <Button className="gap-2 w-full sm:w-auto" size="lg">
-                                    <PlusIcon className="h-4 w-4" />
-                                    <span className="hidden sm:inline">Create Project</span>
-                                    <span className="sm:hidden">Create</span>
-                                </Button>
-                            </DialogTrigger>
-                        </Dialog>
                     </div>
-                </div>
 
-                <motion.div
-                    variants={staggerContainer}
-                    initial="initial"
-                    animate="animate"
-                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-                >
-                    {loading ? (
-                        Array.from({ length: 6 }).map((_, i) => (
-                            <Card key={i}>
-                                <CardHeader>
-                                    <Skeleton className="h-6 w-3/4" />
-                                    <Skeleton className="h-4 w-full mt-2" />
-                                </CardHeader>
-                                <CardContent>
-                                    <Skeleton className="h-2 w-full mb-4" />
-                                    <Skeleton className="h-8 w-8 rounded-full" />
-                                </CardContent>
-                            </Card>
-                        ))
-                    ) : filteredProjects.length > 0 ? (
-                        filteredProjects.map((project) => (
-                            <motion.div
-                                key={project.id}
-                                variants={staggerItem}
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                            >
-                                <Card
-                                    className="cursor-pointer h-full flex flex-col justify-between hover:shadow-lg transition-shadow"
-                                    onClick={() => setSelectedProjectId(project.id)}
-                                >
+                    <motion.div
+                        variants={staggerContainer}
+                        initial="initial"
+                        animate="animate"
+                        className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3"
+                    >
+                        {loading ? (
+                            Array.from({ length: 6 }).map((_, i) => (
+                                <Card key={i} className="h-full rounded-3xl border-border/50 bg-card/80 backdrop-blur-sm">
                                     <CardHeader>
-                                        <div className="flex justify-between items-start gap-3">
-                                            <CardTitle className="text-lg">{project.name}</CardTitle>
-                                            <div className="flex items-start gap-2">
-                                                <Badge
-                                                    variant={
-                                                        project.status === 'On Track'
-                                                            ? 'default'
-                                                            : project.status === 'At Risk'
-                                                            ? 'destructive'
-                                                            : 'secondary'
-                                                    }
-                                                    className="text-xs"
-                                                >
-                                                    {project.status}
-                                                </Badge>
-                                                {project.ownerId === user?.uid && (
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                                        onClick={(event) => {
-                                                            event.stopPropagation();
-                                                            setProjectPendingDelete(project);
-                                                        }}
-                                                    >
-                                                        <TrashIcon className="h-4 w-4" />
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <CardDescription className="mt-2 min-h-[40px]">
-                                            {project.description || 'No description'}
-                                        </CardDescription>
+                                        <Skeleton className="h-6 w-3/4" />
+                                        <Skeleton className="mt-2 h-4 w-full" />
                                     </CardHeader>
                                     <CardContent>
-                                        <div className="space-y-4">
-                                            <div>
-                                                <div className="flex justify-between text-sm text-muted-foreground mb-2">
-                                                    <span>Progress</span>
-                                                    <span className="font-semibold text-foreground">{project.progress}%</span>
-                                                </div>
-                                                <div className="w-full bg-muted rounded-full h-2">
-                                                    <motion.div
-                                                        className="bg-primary h-2 rounded-full"
-                                                        initial={{ width: 0 }}
-                                                        animate={{ width: `${project.progress}%` }}
-                                                        transition={{ duration: 0.5, ease: 'easeOut' }}
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="flex justify-between items-center text-sm text-muted-foreground border-t border-border pt-4">
-                                                <span>{project.team.length} Team {project.team.length === 1 ? 'Member' : 'Members'}</span>
-                                                <div className="flex -space-x-2">
-                                                    {project.team.slice(0, 4).map((member) => (
-                                                        <Avatar key={member.id} className="h-8 w-8 border-2 border-background">
-                                                            <AvatarImage src={member.avatar} alt={member.name} />
-                                                            <AvatarFallback className="text-xs">
-                                                                {member.name[0]}
-                                                            </AvatarFallback>
-                                                        </Avatar>
-                                                    ))}
-                                                    {project.team.length > 4 && (
-                                                        <div className="h-8 w-8 rounded-full border-2 border-background bg-muted flex items-center justify-center text-xs font-semibold">
-                                                            +{project.team.length - 4}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
+                                        <Skeleton className="mb-4 h-2 w-full" />
+                                        <Skeleton className="h-10 w-10 rounded-full" />
                                     </CardContent>
                                 </Card>
-                            </motion.div>
-                        ))
-                    ) : (
-                        <Card className="md:col-span-2 lg:col-span-3">
-                            <CardContent className="pt-6 text-center text-muted-foreground">
-                                No projects found. Create your first project to get started.
-                            </CardContent>
-                        </Card>
-                    )}
-                </motion.div>
-            </motion.div>
+                            ))
+                        ) : filteredProjects.length > 0 ? (
+                            filteredProjects.map((project) => {
+                                const totalTasks = project.tasks.length;
+                                const completedTasks = project.tasks.filter((task) => task.status === 'done').length;
+                                const projectProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+                                return (
+                                    <motion.div
+                                        key={project.id}
+                                        variants={staggerItem}
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                        className="group"
+                                    >
+                                        <Card
+                                            className="relative flex h-full flex-col justify-between overflow-hidden rounded-3xl border border-border/50 bg-card/85 backdrop-blur-md transition-all duration-200 hover:-translate-y-1 hover:shadow-2xl"
+                                            onClick={() => setSelectedProjectId(project.id)}
+                                        >
+                                            <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                                            <CardHeader className="relative">
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <CardTitle className="text-lg">{project.name}</CardTitle>
+                                                    <div className="flex items-start gap-2">
+                                                        <Badge
+                                                            variant={
+                                                                project.status === 'On Track'
+                                                                    ? 'default'
+                                                                    : project.status === 'At Risk'
+                                                                    ? 'destructive'
+                                                                    : 'secondary'
+                                                            }
+                                                            className="text-xs"
+                                                        >
+                                                            {project.status}
+                                                        </Badge>
+                                                        {project.ownerId === user?.uid && (
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    setProjectPendingDelete(project);
+                                                                }}
+                                                            >
+                                                                <TrashIcon className="h-4 w-4" />
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <CardDescription className="mt-2 min-h-[40px]">
+                                                    {project.description || 'No description provided yet.'}
+                                                </CardDescription>
+                                            </CardHeader>
+                                            <CardContent className="relative">
+                                                <div className="space-y-4">
+                                                    <div>
+                                                        <div className="mb-2 flex items-center justify-between text-sm text-muted-foreground">
+                                                            <span>Progress</span>
+                                                            <span className="font-semibold text-foreground">{projectProgress}%</span>
+                                                        </div>
+                                                        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+                                                            <motion.div
+                                                                className="h-full rounded-full bg-primary"
+                                                                initial={{ width: 0 }}
+                                                                animate={{ width: `${projectProgress}%` }}
+                                                                transition={{ duration: 0.5, ease: 'easeOut' }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center justify-between border-t border-border pt-4 text-sm text-muted-foreground">
+                                                        <span>
+                                                            {project.team.length} team {project.team.length === 1 ? 'member' : 'members'}
+                                                        </span>
+                                                        <div className="flex -space-x-2">
+                                                            {project.team.slice(0, 4).map((member) => (
+                                                                <Avatar key={member.id} className="h-8 w-8 border-2 border-background">
+                                                                    <AvatarImage src={member.avatar} alt={member.name} />
+                                                                    <AvatarFallback className="text-xs">
+                                                                        {member.name[0]}
+                                                                    </AvatarFallback>
+                                                                </Avatar>
+                                                            ))}
+                                                            {project.team.length > 4 && (
+                                                                <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-muted text-xs font-semibold">
+                                                                    +{project.team.length - 4}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </motion.div>
+                                );
+                            })
+                        ) : (
+                            <Card className="md:col-span-2 xl:col-span-3">
+                                <CardContent className="pt-6 text-center text-muted-foreground">
+                                    No projects found. Create your first project to get started.
+                                </CardContent>
+                            </Card>
+                        )}
+                    </motion.div>
+                </PageSection>
+            </PageContainer>
 
             <Dialog
                 open={Boolean(projectPendingDelete)}

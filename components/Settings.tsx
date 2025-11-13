@@ -1,16 +1,18 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import Card from './shared/Card';
 import { PlusIcon, CloseIcon, SparklesIcon, TrashIcon, CheckCircleIcon } from './shared/Icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { useTeamMembers } from '../hooks/useTeamMembers';
+import { useUserSearch } from '../hooks/useUserSearch';
 import { TeamMember } from '../types';
 import { storage } from '../services/firebase';
+import { notifyTeamMemberInvite } from '../services/notificationService';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { updateProfile } from 'firebase/auth';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Button } from '@/components/ui/button';
-import { DEMO_DATA_REMOVAL_STEPS, removeDemoData } from '../services/seedService';
+import { DEMO_DATA_REMOVAL_STEPS, removeDemoData, seedUserWorkspace } from '../services/seedService';
 import { useToast } from '@/hooks/use-toast';
 
 type SettingsTab = 'profile' | 'team' | 'integrations' | 'billing';
@@ -53,6 +55,7 @@ const Settings: React.FC = () => {
   const { user } = useAuth();
   const { profile, loading: profileLoading, saveProfile } = useUserProfile(user?.uid);
   const { members, pendingMembers, acceptedMembers, loading: membersLoading, addMember, acceptMember, rejectMember } = useTeamMembers(user?.uid);
+  const { searchUsers, clearResults, searchResults: globalSearchResults, isSearching: isSearchingGlobal } = useUserSearch();
   const { toast } = useToast();
 
   const goalOptions = useMemo(
@@ -155,6 +158,59 @@ const Settings: React.FC = () => {
   const InviteMemberModal = () => {
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviteDescription, setInviteDescription] = useState('');
+    const [searchQuery, setSearchQuery] = useState('');
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+    const emailInputRef = React.useRef<HTMLInputElement>(null);
+    const nameInputRef = React.useRef<HTMLInputElement>(null);
+    const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+    // Debounced search function using global user directory
+    React.useEffect(() => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+
+      if (!searchQuery.trim()) {
+        clearResults();
+        setShowDropdown(false);
+        return;
+      }
+
+      searchTimeoutRef.current = setTimeout(async () => {
+        setShowDropdown(true);
+        await searchUsers(searchQuery.trim());
+      }, 300);
+
+      return () => {
+        if (searchTimeoutRef.current) {
+          clearTimeout(searchTimeoutRef.current);
+        }
+      };
+    }, [searchQuery, searchUsers, clearResults]);
+
+    const handleSelectUser = (user: { id: string; displayName?: string; email: string; photoURL?: string }) => {
+      setInviteName(user.displayName || user.email);
+      setInviteEmail(user.email);
+      setSelectedUserId(user.id);
+      setSearchQuery('');
+      clearResults();
+      setShowDropdown(false);
+      // Focus email input after selection
+      setTimeout(() => emailInputRef.current?.focus(), 100);
+    };
+
+    const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      setInviteEmail(value);
+      setSearchQuery(value);
+    };
+
+    const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value;
+      setInviteName(value);
+      setSearchQuery(value);
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -185,7 +241,7 @@ const Settings: React.FC = () => {
       
       try {
         // Create a team member invitation (pending status)
-        await addMember({
+        const newMemberId = await addMember({
           name: savedName,
           email: savedEmail,
           role: savedRole,
@@ -193,12 +249,34 @@ const Settings: React.FC = () => {
           status: 'pending',
         });
         
+        // Send notification to invited user if they exist in the user directory
+        if (selectedUserId) {
+          try {
+            await notifyTeamMemberInvite(
+              selectedUserId,
+              user?.displayName || user?.email || 'Someone',
+              user?.email || ''
+            );
+          } catch (notifyError) {
+            console.warn('Failed to send notification to invited user:', notifyError);
+            // Don't fail the entire invite if notification fails
+          }
+        }
+        
         setInviteName('');
         setInviteEmail('');
         setInviteDescription('');
+        setSearchQuery('');
+        setSelectedUserId(null);
         setInviteRole('Team Member');
+        clearResults();
+        setShowDropdown(false);
         setIsInviteModalOpen(false);
         setInviteError(null);
+        toast({
+          title: 'Invitation sent',
+          description: `${savedName} has been invited to your team.`,
+        });
       } catch (error: any) {
         setInviteName(savedName);
         setInviteEmail(savedEmail);
@@ -221,6 +299,9 @@ const Settings: React.FC = () => {
                       setInviteName('');
                       setInviteEmail('');
                       setInviteDescription('');
+                      setSearchQuery('');
+                      setSearchResults([]);
+                      setShowDropdown(false);
                       setInviteError(null);
                     }} 
                     className="text-muted-foreground hover:text-foreground transition-colors"
@@ -230,27 +311,106 @@ const Settings: React.FC = () => {
                   </button>
               </div>
               <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
+                  <div className="relative">
                       <label className="block text-sm font-medium text-foreground mb-1">Full Name *</label>
                       <input
+                        ref={nameInputRef}
                         type="text"
                         placeholder="e.g., Alex Johnson"
                         value={inviteName}
-                        onChange={(e) => setInviteName(e.target.value)}
+                        onChange={handleNameChange}
+                        onFocus={() => {
+                          if (inviteName) setSearchQuery(inviteName);
+                        }}
                         className="w-full bg-input text-foreground rounded-[var(--radius)] py-2 px-3 focus:outline-none focus:ring-2 focus:ring-ring border border-border"
                         required
+                        autoComplete="off"
                       />
+                      {showDropdown && (
+                        <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-[var(--radius)] shadow-lg max-h-60 overflow-y-auto">
+                          {isSearchingGlobal ? (
+                            <div className="p-4 text-center">
+                              <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
+                              <p className="text-sm text-muted-foreground">Searching users...</p>
+                            </div>
+                          ) : globalSearchResults.length > 0 ? (
+                            globalSearchResults.map((user) => (
+                              <button
+                                key={user.id}
+                                type="button"
+                                onClick={() => handleSelectUser(user)}
+                                className="w-full text-left px-4 py-2 hover:bg-muted/50 flex items-center gap-3 transition-colors"
+                              >
+                                {user.photoURL ? (
+                                  <img src={user.photoURL} alt={user.displayName || user.email} className="w-8 h-8 rounded-full" />
+                                ) : (
+                                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                    <span className="text-xs font-semibold text-primary">
+                                      {(user.displayName || user.email)[0].toUpperCase()}
+                                    </span>
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="text-sm font-medium text-foreground">{user.displayName || user.email}</p>
+                                  {user.email && (
+                                    <p className="text-xs text-muted-foreground">{user.email}</p>
+                                  )}
+                                </div>
+                              </button>
+                            ))
+                          ) : searchQuery.trim() ? (
+                            <div className="p-4 text-center">
+                              <p className="text-sm text-muted-foreground">No users found</p>
+                              <p className="text-xs text-muted-foreground mt-1">Try searching by name or email</p>
+                            </div>
+                          ) : null}
+                        </div>
+                      )}
                   </div>
-                  <div>
+                  <div className="relative">
                       <label className="block text-sm font-medium text-foreground mb-1">Email *</label>
                       <input
+                        ref={emailInputRef}
                         type="email"
                         placeholder="e.g., alex@example.com"
                         value={inviteEmail}
-                        onChange={(e) => setInviteEmail(e.target.value)}
+                        onChange={handleEmailChange}
+                        onFocus={() => {
+                          if (inviteEmail) setSearchQuery(inviteEmail);
+                        }}
+                        onBlur={() => {
+                          // Delay hiding dropdown to allow clicks
+                          setTimeout(() => setShowDropdown(false), 200);
+                        }}
                         className="w-full bg-input text-foreground rounded-[var(--radius)] py-2 px-3 focus:outline-none focus:ring-2 focus:ring-ring border border-border"
                         required
+                        autoComplete="off"
                       />
+                      {showDropdown && searchResults.length > 0 && inviteEmail && (
+                        <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-[var(--radius)] shadow-lg max-h-60 overflow-y-auto">
+                          {searchResults.map((user, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => handleSelectUser(user)}
+                              className="w-full text-left px-4 py-2 hover:bg-muted/50 flex items-center gap-3 transition-colors"
+                            >
+                              {user.avatar && (
+                                <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full" />
+                              )}
+                              <div>
+                                <p className="text-sm font-medium text-foreground">{user.name}</p>
+                                {user.email && (
+                                  <p className="text-xs text-muted-foreground">{user.email}</p>
+                                )}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {isSearching && (
+                        <p className="absolute right-3 top-9 text-xs text-muted-foreground">Searching...</p>
+                      )}
                   </div>
                   <div>
                       <label className="block text-sm font-medium text-foreground mb-1">Description</label>
@@ -283,6 +443,9 @@ const Settings: React.FC = () => {
                           setInviteName('');
                           setInviteEmail('');
                           setInviteDescription('');
+                          setSearchQuery('');
+                          setSearchResults([]);
+                          setShowDropdown(false);
                           setInviteError(null);
                         }}
                         className="bg-secondary text-secondary-foreground font-semibold py-2 px-4 rounded-[var(--radius)] hover:bg-secondary/80 transition-colors shadow-sm"
@@ -422,7 +585,7 @@ const Settings: React.FC = () => {
                  <div>
                    <h3 className="text-lg font-semibold text-foreground">Demo Data Controls</h3>
                    <p className="text-sm text-muted-foreground">
-                     Remove the sample workspace data once you’re ready to go live.
+                     Manage sample workspace data to test features or start fresh.
                    </p>
                  </div>
                  {profile?.demoDataRemovedAt && (
@@ -444,24 +607,58 @@ const Settings: React.FC = () => {
                      </p>
                    )}
                  </div>
-                 <div className="flex items-center justify-between">
+                 <div className="flex items-center justify-between gap-4">
                    <div className="text-xs uppercase tracking-wide text-muted-foreground">
                      Status: {profile?.demoDataRemovedAt ? 'No demo data present' : 'Demo data active'}
                    </div>
-                   <Button
-                     variant="destructive"
-                     size="sm"
-                     className="gap-2"
-                     onClick={() => {
-                       setRemovalError(null);
-                       resetRemovalStatuses();
-                       setIsRemoveDemoModalOpen(true);
-                     }}
-                     disabled={isRemovingDemoData}
-                   >
-                     <TrashIcon className="h-4 w-4" />
-                     Remove demo data
-                   </Button>
+                   <div className="flex gap-2">
+                     {profile?.demoDataRemovedAt && (
+                       <Button
+                         variant="outline"
+                         size="sm"
+                         className="gap-2"
+                         onClick={async () => {
+                           if (!user?.uid) return;
+                           try {
+                             setIsRemovingDemoData(true);
+                             setRemovalError(null);
+                             await seedUserWorkspace(user.uid);
+                             // Update profile to clear the removed flag
+                             await saveProfile({
+                               ...profile,
+                               demoDataRemovedAt: undefined,
+                             });
+                             toast({
+                               title: 'Demo data added',
+                               description: 'Sample workspace data has been restored.',
+                             });
+                           } catch (error: any) {
+                             setRemovalError(error?.message ?? 'Failed to add demo data. Please try again.');
+                           } finally {
+                             setIsRemovingDemoData(false);
+                           }
+                         }}
+                         disabled={isRemovingDemoData}
+                       >
+                         <PlusIcon className="h-4 w-4" />
+                         Add demo data
+                       </Button>
+                     )}
+                     <Button
+                       variant={profile?.demoDataRemovedAt ? "outline" : "destructive"}
+                       size="sm"
+                       className="gap-2"
+                       onClick={() => {
+                         setRemovalError(null);
+                         resetRemovalStatuses();
+                         setIsRemoveDemoModalOpen(true);
+                       }}
+                       disabled={isRemovingDemoData}
+                     >
+                       <TrashIcon className="h-4 w-4" />
+                       {profile?.demoDataRemovedAt ? 'Remove again' : 'Remove demo data'}
+                     </Button>
+                   </div>
                  </div>
                  {removalError && (
                    <p className="text-sm text-destructive">{removalError}</p>
@@ -638,8 +835,8 @@ const Settings: React.FC = () => {
     <>
       {isInviteModalOpen && <InviteMemberModal />}
       {isRemoveDemoModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-          <Card className="w-full max-w-lg animate-slide-in-up space-y-6">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
+          <Card className="w-full max-w-lg animate-slide-in-up space-y-6 bg-card border-border shadow-2xl">
             <div className="flex items-center gap-3 border-b border-border pb-4">
               <div className="p-2 rounded-full bg-primary/10">
                 <SparklesIcon className="h-5 w-5 text-primary" />

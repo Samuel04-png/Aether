@@ -8,9 +8,11 @@
  */
 
 import React, { useEffect, useMemo, useState, lazy, Suspense } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
+import Topbar from './components/Topbar';
+import ByteBerryCopilot from './components/copilot/ByteBerryCopilot';
 import Auth from './components/auth/Auth';
 import Landing from './components/Landing';
 import Onboarding from './components/onboarding/Onboarding';
@@ -28,6 +30,8 @@ import { Button } from '@/components/ui/button';
 import { SparklesIcon, TrashIcon } from './components/shared/Icons';
 import { useToast } from '@/hooks/use-toast';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import MobileNavbar from './components/MobileNavbar';
+import { useScreenSize } from './hooks/useScreenSize';
 
 // Lazy load heavy components for better performance
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -50,6 +54,7 @@ const App: React.FC = () => {
   const [showDemoDataDialog, setShowDemoDataDialog] = useState(false);
   const [isRemovingDemoData, setIsRemovingDemoData] = useState(false);
   const [demoRemovalError, setDemoRemovalError] = useState<string | null>(null);
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   const createInitialDemoState = () =>
     DEMO_DATA_REMOVAL_STEPS.reduce<Record<string, 'pending' | 'running' | 'success' | 'error'>>(
       (acc, step) => {
@@ -65,6 +70,13 @@ const App: React.FC = () => {
   const { user, initializing } = useAuth();
   const { profile, loading: profileLoading, saveProfile } = useUserProfile(user?.uid);
   const { toast } = useToast();
+  const { isDesktop, isMobile } = useScreenSize();
+  const workspaceName = useMemo(() => {
+    const name = profile?.businessName;
+    if (!name) return undefined;
+    const trimmed = name.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+  }, [profile?.businessName]);
   // Developer signature
   React.useEffect(() => {
     console.log(
@@ -190,22 +202,20 @@ const App: React.FC = () => {
     }
   };
 
+  const handleNewTask = () => {
+    setActiveView('tasks');
+  };
+
+  const handleNewProject = () => {
+    setActiveView('projects');
+  };
+
+  const handleCreateLead = () => {
+    setActiveView('leads');
+  };
+
   // Lazy load components for better performance
   const renderContent = () => {
-    const Component = (() => {
-      switch (activeView) {
-        case 'dashboard': return Dashboard;
-        case 'chat': return TeamChat;
-        case 'insights': return Insights;
-        case 'tasks': return Tasks;
-        case 'projects': return Projects;
-        case 'leads': return Leads;
-        case 'notifications': return NotificationsPage;
-        case 'settings': return Settings;
-        default: return Dashboard;
-      }
-    })();
-
     return (
       <ErrorBoundary>
         <Suspense fallback={
@@ -219,7 +229,14 @@ const App: React.FC = () => {
             <Skeleton className="h-96 w-full" />
           </div>
         }>
-          <Component />
+          {activeView === 'dashboard' && <Dashboard onNavigate={(view) => setActiveView(view as ViewType)} />}
+          {activeView === 'chat' && <TeamChat />}
+          {activeView === 'insights' && <Insights />}
+          {activeView === 'tasks' && <Tasks />}
+          {activeView === 'projects' && <Projects />}
+          {activeView === 'leads' && <Leads />}
+          {activeView === 'notifications' && <NotificationsPage />}
+          {activeView === 'settings' && <Settings />}
         </Suspense>
       </ErrorBoundary>
     );
@@ -297,48 +314,97 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="flex min-h-screen bg-background font-sans text-foreground">
-      <Sidebar
-        activeView={activeView}
-        setActiveView={setActiveView}
-        className="h-screen max-lg:hidden"
-      />
-      <div className="flex-1 flex flex-col overflow-hidden relative">
-        <Header
+    <div className="relative flex min-h-screen bg-background/95 font-sans text-foreground">
+      <div className="pointer-events-none fixed inset-0 -z-10">
+        <div className="absolute -top-40 -left-32 h-[28rem] w-[28rem] rounded-full bg-primary/15 blur-3xl dark:bg-primary/25" />
+        <div className="absolute bottom-[-18rem] right-[-10rem] h-[30rem] w-[30rem] rounded-full bg-purple-500/15 blur-[140px] dark:bg-purple-500/25" />
+        <div className="absolute top-1/3 left-1/2 h-[24rem] w-[24rem] -translate-x-1/2 rounded-full bg-cyan-400/10 blur-[150px] dark:bg-cyan-500/20" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.12),transparent_55%)] dark:bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.18),transparent_55%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.05)_0%,rgba(255,255,255,0)_40%)] dark:bg-[linear-gradient(135deg,rgba(15,20,40,0.45)_0%,rgba(15,20,40,0)_45%)]" />
+      </div>
+      {isDesktop && (
+        <Sidebar
           activeView={activeView}
-          onToggleNotifications={() => setIsNotificationsOpen(!isNotificationsOpen)}
-          onOpenMobileNav={() => setIsMobileNavOpen(true)}
+          setActiveView={setActiveView}
+          className="h-screen"
+          companyName={workspaceName}
         />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto bg-background/40 backdrop-blur-2xl p-4 md:p-6 lg:p-10">
-          <div className="animate-fade-in">
-            {renderContent()}
-          </div>
+      )}
+      <div className="relative flex flex-1 flex-col overflow-x-hidden">
+        {isDesktop ? (
+          <Topbar
+            onNewTask={handleNewTask}
+            onNewProject={handleNewProject}
+            onToggleNotifications={() => setIsNotificationsOpen(!isNotificationsOpen)}
+            onCreateLead={handleCreateLead}
+            onOpenCopilot={() => setIsCopilotOpen(true)}
+          />
+        ) : (
+          <Header
+            activeView={activeView}
+            onToggleNotifications={() => setIsNotificationsOpen(!isNotificationsOpen)}
+            onOpenMobileNav={() => setIsMobileNavOpen(true)}
+          />
+        )}
+        <main
+          className={`relative flex-1 overflow-x-hidden overflow-y-auto bg-background/50 backdrop-blur-2xl p-4 pb-20 transition-all md:p-6 lg:p-10 lg:pb-10 ${
+            isDesktop ? 'pt-10' : ''
+          }`}
+        >
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={activeView}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+            >
+              {renderContent()}
+            </motion.div>
+          </AnimatePresence>
           {/* Watermark */}
-          <div className="hidden md:block fixed bottom-2 right-4 text-[9px] text-muted-foreground/20 pointer-events-none select-none opacity-30 hover:opacity-60 transition-opacity">
+          <div className="pointer-events-none hidden select-none text-[9px] text-muted-foreground/20 opacity-30 transition-opacity hover:opacity-60 md:block md:fixed md:bottom-2 md:right-4">
             Byte&Berry
           </div>
         </main>
+        {isMobile && (
+          <MobileNavbar
+            activeView={activeView}
+            onNavigate={(view) => {
+              setActiveView(view);
+            }}
+          />
+        )}
         <NotificationsDrawer isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} />
-        {/* Toasts (shadcn) */}
         <Toaster />
       </div>
-      <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
-        <SheetContent side="left" className="p-0 w-72 sm:max-w-sm">
-          <SheetHeader className="px-6 pt-6 pb-4">
-            <SheetTitle>Navigate</SheetTitle>
-          </SheetHeader>
-          <div className="border-t border-border/60">
-          <Sidebar
-            activeView={activeView}
-            setActiveView={(view) => {
-              setActiveView(view);
-              setIsMobileNavOpen(false);
-            }}
-            className="w-full h-full bg-sidebar/95"
-          />
-          </div>
-        </SheetContent>
-      </Sheet>
+      {user && (
+        <ByteBerryCopilot
+          isOpen={isCopilotOpen}
+          onOpenChange={setIsCopilotOpen}
+          userId={user.uid}
+        />
+      )}
+      {!isDesktop && (
+        <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
+          <SheetContent side="left" className="p-0 w-72 sm:max-w-sm">
+            <SheetHeader className="px-6 pt-6 pb-4">
+              <SheetTitle>Navigate</SheetTitle>
+            </SheetHeader>
+            <div className="border-t border-border/60">
+              <Sidebar
+                activeView={activeView}
+                setActiveView={(view) => {
+                  setActiveView(view);
+                  setIsMobileNavOpen(false);
+                }}
+                className="w-full h-full bg-sidebar/95"
+                companyName={workspaceName}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+      )}
       {showDemoDataDialog && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/70 backdrop-blur">
           <Card className="w-full max-w-lg animate-slide-in-up">

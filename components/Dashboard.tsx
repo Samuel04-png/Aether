@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
-import { SparklesIcon, PlusIcon, TasksIcon, ClockIcon, EnvelopeIcon, CheckIcon } from './shared/Icons';
+import { SparklesIcon, TasksIcon, ClockIcon, EnvelopeIcon, CheckIcon } from './shared/Icons';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { motion } from 'framer-motion';
-import { fadeInUp, staggerContainer, staggerItem, hoverScale, transitions } from '@/lib/motion';
+import { fadeInUp, staggerContainer, staggerItem, transitions } from '@/lib/motion';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '../contexts/AuthContext';
 import { useDashboard } from '../hooks/useDashboard';
@@ -24,35 +24,9 @@ import { useLeads } from '../hooks/useLeads';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { generateBusinessInsights } from '../services/geminiService';
 import { cn } from '@/lib/utils';
+import { PageContainer, PageHeader, PageSection } from './layout/Page';
 
-const KpiCard: React.FC<{ title: string; value: string; change: string; changeType: 'increase' | 'decrease' }> = React.memo(({ title, value, change, changeType }) => {
-  const isIncrease = changeType === 'increase';
-  return (
-    <motion.div
-      variants={staggerItem}
-      whileHover={hoverScale}
-      className="h-full"
-    >
-      <Card className="h-full border-border/60 bg-card/80 backdrop-blur-sm shadow-md hover:shadow-lg transition-shadow duration-200">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">{title}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-4xl font-bold text-foreground mb-3 tracking-tight">{value}</p>
-          <div className="flex items-center gap-2">
-            <Badge variant={isIncrease ? 'default' : 'destructive'} className="text-xs font-medium px-2 py-0.5">
-              {change}
-            </Badge>
-            <span className="text-xs text-muted-foreground font-medium">vs last month</span>
-          </div>
-        </CardContent>
-    </Card>
-    </motion.div>
-  );
-});
-KpiCard.displayName = 'KpiCard';
-
-const Dashboard: React.FC = () => {
+const Dashboard: React.FC<{ onNavigate?: (view: string) => void }> = ({ onNavigate }) => {
   const { user } = useAuth();
   const { kpis, monthlySales, loading, uploadDashboardData } = useDashboard(user?.uid);
   const { incompleteTasks, upcomingDeadlines, loading: tasksLoading } = useAssignedTasks(user?.uid);
@@ -60,13 +34,134 @@ const Dashboard: React.FC = () => {
   const { unreadCount } = useNotifications(user?.uid);
   const { tasks, tasksByStatus } = useTasks(user?.uid);
   const { projects } = useProjects(user?.uid);
-  const { leads } = useLeads(user?.uid);
+  const { leads, loading: leadsLoading } = useLeads(user?.uid);
   const { profile } = useUserProfile(user?.uid);
   const { toast } = useToast();
+
+  // Calculate real data metrics
+  const realDataMetrics = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    
+    // Revenue: Sum of all sales data or latest month
+    const totalRevenue = monthlySales.reduce((sum, item) => sum + item.sales, 0);
+    const latestRevenue = monthlySales.length > 0 ? monthlySales[monthlySales.length - 1].sales : 0;
+    const previousRevenue = monthlySales.length > 1 ? monthlySales[monthlySales.length - 2].sales : 0;
+    const revenueChange = previousRevenue > 0 
+      ? ((latestRevenue - previousRevenue) / previousRevenue * 100).toFixed(1)
+      : '0';
+    
+    // New Leads: Count leads created this month
+    const newLeadsThisMonth = leads.filter(lead => {
+      if (!lead.createdAt) return false;
+      const leadDate = new Date(lead.createdAt);
+      return leadDate.getMonth() === currentMonth && leadDate.getFullYear() === currentYear;
+    }).length;
+    
+    // Previous month leads for comparison
+    const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+    const newLeadsLastMonth = leads.filter(lead => {
+      if (!lead.createdAt) return false;
+      const leadDate = new Date(lead.createdAt);
+      return leadDate.getMonth() === lastMonth && leadDate.getFullYear() === lastMonthYear;
+    }).length;
+    const leadsChange = newLeadsLastMonth > 0
+      ? ((newLeadsThisMonth - newLeadsLastMonth) / newLeadsLastMonth * 100).toFixed(1)
+      : '0';
+    
+    // Tasks Completed: Count completed tasks this month
+    const completedTasksThisMonth = tasks.filter(task => {
+      if (!task.completedAt) return false;
+      const completedDate = new Date(task.completedAt);
+      return completedDate.getMonth() === currentMonth && completedDate.getFullYear() === currentYear;
+    }).length;
+    
+    // Previous month completed tasks for comparison
+    const completedTasksLastMonth = tasks.filter(task => {
+      if (!task.completedAt) return false;
+      const completedDate = new Date(task.completedAt);
+      return completedDate.getMonth() === lastMonth && completedDate.getFullYear() === lastMonthYear;
+    }).length;
+    const tasksChange = completedTasksLastMonth > 0
+      ? ((completedTasksThisMonth - completedTasksLastMonth) / completedTasksLastMonth * 100).toFixed(1)
+      : completedTasksThisMonth > 0 ? '100' : '0';
+    
+    // Website Traffic: Placeholder for now (would come from analytics)
+    const websiteTraffic = 0; // TODO: Connect to analytics
+    
+    return {
+      revenue: {
+        value: latestRevenue > 0 ? `$${latestRevenue.toLocaleString()}` : totalRevenue > 0 ? `$${totalRevenue.toLocaleString()}` : '$0',
+        change: revenueChange,
+        changeType: parseFloat(revenueChange) >= 0 ? 'increase' as const : 'decrease' as const,
+      },
+      leads: {
+        value: newLeadsThisMonth.toString(),
+        change: leadsChange,
+        changeType: parseFloat(leadsChange) >= 0 ? 'increase' as const : 'decrease' as const,
+      },
+      tasks: {
+        value: completedTasksThisMonth.toString(),
+        change: `${tasksChange}%`,
+        changeType: parseFloat(tasksChange) >= 0 ? 'increase' as const : 'decrease' as const,
+      },
+      traffic: {
+        value: websiteTraffic > 0 ? websiteTraffic.toLocaleString() : '0',
+        change: '0%',
+        changeType: 'increase' as const,
+      },
+    };
+  }, [monthlySales, leads, tasks]);
   const salesData = useMemo(
     () => monthlySales.map((item) => ({ name: item.month, Sales: item.sales })),
     [monthlySales],
   );
+  
+  const deriveTrend = (value: number) => {
+    if (!Number.isFinite(value)) return 'steady' as const;
+    if (value > 0) return 'up' as const;
+    if (value < 0) return 'down' as const;
+    return 'steady' as const;
+  };
+
+  const formatDelta = (value: number) => {
+    if (!Number.isFinite(value)) {
+      return 'No change vs last month';
+    }
+    if (value === 0) {
+      return 'No change vs last month';
+    }
+    const prefix = value > 0 ? '+' : '-';
+    const rounded = Math.abs(value).toFixed(1);
+    return `${prefix}${rounded}% vs last month`;
+  };
+
+  const revenueDelta = parseFloat(realDataMetrics.revenue.change);
+  const leadsDelta = parseFloat(realDataMetrics.leads.change);
+  const tasksDelta = parseFloat(realDataMetrics.tasks.change.replace('%', ''));
+
+  const headerStats = [
+    {
+      label: 'Revenue run rate',
+      value: realDataMetrics.revenue.value,
+      trend: deriveTrend(revenueDelta),
+      helper: formatDelta(revenueDelta),
+    },
+    {
+      label: 'New leads this month',
+      value: realDataMetrics.leads.value,
+      trend: deriveTrend(leadsDelta),
+      helper: formatDelta(leadsDelta),
+    },
+    {
+      label: 'Tasks completed',
+      value: realDataMetrics.tasks.value,
+      trend: deriveTrend(tasksDelta),
+      helper: formatDelta(tasksDelta),
+    },
+  ];
   
   const [aiInsights, setAiInsights] = useState<Array<{ type: 'recommendation' | 'alert' | 'tip'; title: string; content: string }>>([]);
   const [insightsLoading, setInsightsLoading] = useState(false);
@@ -129,7 +224,17 @@ const Dashboard: React.FC = () => {
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [uploadType, setUploadType] = useState<'kpi' | 'sales'>('kpi');
   
+  // KPI type definitions
+  const kpiTypes = [
+    { value: 'revenue', label: 'Revenue', icon: '💰', placeholder: 'e.g., $125,430' },
+    { value: 'leads', label: 'New Leads', icon: '👥', placeholder: 'e.g., 45' },
+    { value: 'traffic', label: 'Website Traffic', icon: '🌐', placeholder: 'e.g., 12,543' },
+    { value: 'tasks', label: 'Tasks Completed', icon: '✅', placeholder: 'e.g., 23' },
+    { value: 'custom', label: 'Custom KPI', icon: '📊', placeholder: 'e.g., $125,430' },
+  ];
+  
   // KPI form fields
+  const [kpiType, setKpiType] = useState('revenue');
   const [kpiTitle, setKpiTitle] = useState('');
   const [kpiValue, setKpiValue] = useState('');
   const [kpiChange, setKpiChange] = useState('');
@@ -140,6 +245,18 @@ const Dashboard: React.FC = () => {
   const [salesAmount, setSalesAmount] = useState('');
   
   const [isUploading, setIsUploading] = useState(false);
+
+  // Update KPI title when type changes
+  useEffect(() => {
+    if (kpiType !== 'custom') {
+      const selectedType = kpiTypes.find(t => t.value === kpiType);
+      if (selectedType) {
+        setKpiTitle(selectedType.label);
+      }
+    } else {
+      setKpiTitle('');
+    }
+  }, [kpiType]);
 
   // Generate AI insights from user data
   useEffect(() => {
@@ -211,6 +328,7 @@ const Dashboard: React.FC = () => {
         
         // Reset form and close modal only after success
         setIsUploadModalOpen(false);
+        setKpiType('revenue');
         setKpiTitle('');
         setKpiValue('');
         setKpiChange('');
@@ -318,23 +436,45 @@ const Dashboard: React.FC = () => {
             
             <TabsContent value="kpi" className="space-y-4 mt-4">
               <div className="space-y-2">
-                <Label htmlFor="kpi-title">KPI Title</Label>
+                <Label htmlFor="kpi-type">KPI Category</Label>
+                <Select value={kpiType} onValueChange={setKpiType}>
+                  <SelectTrigger id="kpi-type">
+                    <SelectValue placeholder="Select a KPI type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {kpiTypes.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        <div className="flex items-center gap-2">
+                          <span>{type.icon}</span>
+                          <span>{type.label}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {kpiType === 'custom' && (
+                <div className="space-y-2">
+                  <Label htmlFor="kpi-title">Custom KPI Title</Label>
                 <Input
                   id="kpi-title"
                       value={kpiTitle}
                       onChange={(e) => setKpiTitle(e.target.value)}
-                      placeholder="e.g., Total Revenue"
+                    placeholder="e.g., Customer Satisfaction Score"
                     />
                   </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="kpi-value">Value</Label>
                 <Input
                   id="kpi-value"
                       value={kpiValue}
                       onChange={(e) => setKpiValue(e.target.value)}
-                      placeholder="e.g., $125,430"
+                  placeholder={kpiTypes.find(t => t.value === kpiType)?.placeholder || 'Enter value'}
+                  type={kpiType === 'revenue' || kpiType === 'traffic' || kpiType === 'custom' ? 'text' : 'number'}
                     />
                   </div>
+              <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="kpi-change">Change</Label>
                 <Input
@@ -355,6 +495,7 @@ const Dashboard: React.FC = () => {
                     <SelectItem value="decrease">Decrease</SelectItem>
                   </SelectContent>
                 </Select>
+                </div>
                   </div>
             </TabsContent>
             
@@ -406,90 +547,39 @@ const Dashboard: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      <motion.div
-        initial={fadeInUp.initial}
-        animate={fadeInUp.animate}
-        exit={fadeInUp.exit}
-        transition={transitions.quick}
-        className="space-y-8"
-      >
-        <div className="flex justify-between items-center">
-          <motion.h1
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={transitions.quick}
-            className="text-4xl font-bold text-foreground tracking-tight"
-          >
-            Dashboard
-          </motion.h1>
-          <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <PlusIcon className="h-4 w-4" />
-                Upload Data
-              </Button>
-            </DialogTrigger>
-          </Dialog>
-        </div>
-        
+      <PageContainer className="space-y-12 pb-24">
+        <PageHeader
+          eyebrow="Executive summary"
+          title="Mission Control"
+          subtitle="Monitor revenue velocity, pipeline health, and team focus in real time."
+          stats={headerStats}
+        />
+
+        <PageSection
+          title="Team momentum"
+          description="Stay ahead of blockers with a unified view across ownership, deadlines, and invites."
+        >
         <motion.div
           variants={staggerContainer}
           initial="initial"
           animate="animate"
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
-        >
-        {loading ? (
-            Array.from({ length: 4 }).map((_, i) => (
-              <Card key={i} className="h-full">
-                <CardHeader>
-                  <Skeleton className="h-4 w-24" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-10 w-32 mb-2" />
-                  <Skeleton className="h-4 w-20" />
-                </CardContent>
-          </Card>
-            ))
-        ) : kpis.length > 0 ? (
-          kpis.map((kpi) => (
-            <KpiCard key={kpi.id} title={kpi.title} value={kpi.value} change={kpi.change} changeType={kpi.changeType} />
-          ))
-        ) : (
-            <Card className="sm:col-span-2 lg:col-span-4 border-2 border-dashed border-border/50 bg-muted/30">
-              <CardContent className="pt-6 pb-6 text-center">
-                <div className="flex flex-col items-center gap-4">
-                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-                    <PlusIcon className="h-8 w-8 text-primary" />
-                  </div>
-                  <div>
-                    <p className="text-lg font-semibold text-foreground mb-1">No KPIs yet</p>
-                    <p className="text-sm text-muted-foreground">Add business data to see KPIs here</p>
-                  </div>
-                  <Button onClick={() => setIsUploadModalOpen(true)} className="gap-2">
-                    <PlusIcon className="h-4 w-4" />
-                    Upload Data
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </motion.div>
-
-          {/* Personal Productivity Widgets */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {/* Tasks Assigned to Me */}
+            className="grid grid-cols-1 gap-5 lg:grid-cols-3"
+          >
           <motion.div variants={staggerItem}>
-            <Card className="hover:shadow-xl transition-all duration-200 border-border/60 bg-card/80 backdrop-blur-sm">
+              <Card className="border-border/60 bg-card/85 backdrop-blur-sm transition-all duration-200 hover:shadow-xl">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="p-2 rounded-lg bg-primary/10">
+                      <div className="rounded-lg bg-primary/10 p-2">
                       <TasksIcon className="h-5 w-5 text-primary" />
                     </div>
-                    <CardTitle className="text-lg text-foreground">My Tasks</CardTitle>
+                      <CardTitle className="text-lg text-foreground">My tasks</CardTitle>
                   </div>
-                  <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">{incompleteTasks.length}</Badge>
+                    <Badge variant="secondary" className="border-primary/20 bg-primary/10 text-primary">
+                      {incompleteTasks.length}
+                    </Badge>
                 </div>
+                  <CardDescription>Prioritized work assigned to you.</CardDescription>
               </CardHeader>
               <CardContent>
                 {tasksLoading ? (
@@ -498,11 +588,11 @@ const Dashboard: React.FC = () => {
                     <Skeleton className="h-12 w-full" />
                   </div>
                 ) : incompleteTasks.length > 0 ? (
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                     {incompleteTasks.slice(0, 5).map((task) => (
-                      <div key={task.id} className="p-3 bg-muted/50 rounded-lg border border-border">
-                        <p className="text-sm font-medium text-foreground line-clamp-1">{task.title}</p>
-                        <div className="flex justify-between items-center mt-2">
+                        <div key={task.id} className="rounded-lg border border-border bg-muted/40 p-3">
+                          <p className="line-clamp-1 text-sm font-medium text-foreground">{task.title}</p>
+                          <div className="mt-2 flex items-center justify-between">
                           <span className="text-xs text-muted-foreground">{task.projectName}</span>
                           <Badge
                             variant={
@@ -514,45 +604,48 @@ const Dashboard: React.FC = () => {
                             }
                             className="text-xs"
                           >
-                            {task.status === 'todo' ? 'To Do' : task.status === 'inprogress' ? 'In Progress' : 'Done'}
+                              {task.status === 'todo' ? 'To do' : task.status === 'inprogress' ? 'In progress' : 'Done'}
                           </Badge>
                         </div>
                       </div>
                     ))}
                     {incompleteTasks.length > 5 && (
-                      <p className="text-xs text-muted-foreground text-center pt-2">
+                        <p className="pt-2 text-center text-xs text-muted-foreground">
                         +{incompleteTasks.length - 5} more tasks
                       </p>
                     )}
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-chart-2/10 flex items-center justify-center">
-                      <CheckIcon className="w-8 h-8" style={{ color: 'var(--chart-2)' }} />
+                    <div className="py-8 text-center">
+                      <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-chart-2/10">
+                        <CheckIcon className="h-8 w-8" style={{ color: 'var(--chart-2)' }} />
                     </div>
                     <p className="text-sm font-medium text-foreground">All caught up!</p>
-                    <p className="text-xs text-muted-foreground mt-1">No tasks assigned to you</p>
+                      <p className="mt-1 text-xs text-muted-foreground">No tasks assigned to you.</p>
                   </div>
                 )}
               </CardContent>
             </Card>
           </motion.div>
 
-          {/* Upcoming Deadlines */}
           <motion.div variants={staggerItem}>
-            <Card className="hover:shadow-lg transition-shadow">
+              <Card className="transition-shadow duration-200 hover:shadow-lg">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="p-2 rounded-lg bg-chart-3/10">
+                      <div className="rounded-lg bg-chart-3/10 p-2">
                       <ClockIcon className="h-5 w-5" style={{ color: 'var(--chart-3)' }} />
                     </div>
                     <CardTitle className="text-lg text-foreground">Deadlines</CardTitle>
                   </div>
-                  <Badge variant={upcomingDeadlines.length > 0 ? 'destructive' : 'secondary'} className={upcomingDeadlines.length > 0 ? '' : 'bg-chart-3/10 text-chart-3 border-chart-3/20'}>
+                    <Badge
+                      variant={upcomingDeadlines.length > 0 ? 'destructive' : 'secondary'}
+                      className={upcomingDeadlines.length > 0 ? '' : 'border-chart-3/20 bg-chart-3/10 text-chart-3'}
+                    >
                     {upcomingDeadlines.length}
                   </Badge>
                 </div>
+                  <CardDescription>Important due dates over the next 7 days.</CardDescription>
               </CardHeader>
               <CardContent>
                 {tasksLoading ? (
@@ -561,71 +654,68 @@ const Dashboard: React.FC = () => {
                     <Skeleton className="h-12 w-full" />
                   </div>
                 ) : upcomingDeadlines.length > 0 ? (
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    <div className="max-h-64 space-y-2 overflow-y-auto pr-1">
                     {upcomingDeadlines.map((task) => (
                       <motion.div 
                         key={task.id} 
                         whileHover={{ scale: 1.02, x: 4 }}
-                        className="p-3 bg-destructive/10 border border-destructive/30 rounded-lg hover:bg-destructive/15 hover:border-destructive/40 transition-all cursor-pointer"
+                          className="cursor-pointer rounded-lg border border-destructive/30 bg-destructive/10 p-3 transition-all hover:border-destructive/40 hover:bg-destructive/15"
                       >
-                        <p className="text-sm font-medium text-foreground line-clamp-1">{task.title}</p>
-                        <div className="flex justify-between items-center mt-2">
+                          <p className="line-clamp-1 text-sm font-medium text-foreground">{task.title}</p>
+                          <div className="mt-2 flex items-center justify-between">
                           <span className="text-xs text-muted-foreground">{task.projectName}</span>
-                          <span className="text-xs text-destructive font-semibold">
-                            Due: {new Date(task.dueDate!).toLocaleDateString()}
+                            <span className="text-xs font-semibold text-destructive">
+                              Due {new Date(task.dueDate!).toLocaleDateString()}
                           </span>
                         </div>
                       </motion.div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-chart-2/10 flex items-center justify-center">
-                      <ClockIcon className="w-8 h-8" style={{ color: 'var(--chart-2)' }} />
+                    <div className="py-8 text-center">
+                      <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-chart-2/10">
+                        <ClockIcon className="h-8 w-8" style={{ color: 'var(--chart-2)' }} />
                     </div>
                     <p className="text-sm font-medium text-foreground">No upcoming deadlines</p>
-                    <p className="text-xs text-muted-foreground mt-1">You're all set!</p>
+                      <p className="mt-1 text-xs text-muted-foreground">You're all set!</p>
                   </div>
                 )}
               </CardContent>
             </Card>
           </motion.div>
 
-          {/* Pending Invites */}
           <motion.div variants={staggerItem}>
-            <Card className="hover:shadow-lg transition-shadow">
+              <Card className="transition-shadow duration-200 hover:shadow-lg">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="p-2 rounded-lg bg-primary/10">
+                      <div className="rounded-lg bg-primary/10 p-2">
                       <EnvelopeIcon className="h-5 w-5 text-primary" />
                     </div>
                     <CardTitle className="text-lg text-foreground">Invitations</CardTitle>
                   </div>
-                  <Badge variant={pendingInvites.length > 0 ? 'default' : 'secondary'} className={pendingInvites.length > 0 ? '' : 'bg-primary/10 text-primary border-primary/20'}>
+                    <Badge
+                      variant={pendingInvites.length > 0 ? 'default' : 'secondary'}
+                      className={pendingInvites.length > 0 ? '' : 'border-primary/20 bg-primary/10 text-primary'}
+                    >
                     {pendingInvites.length}
                   </Badge>
                 </div>
+                  <CardDescription>Collaboration requests awaiting your response.</CardDescription>
               </CardHeader>
               <CardContent>
                 {pendingInvites.length > 0 ? (
-                  <div className="space-y-3 max-h-64 overflow-y-auto">
+                    <div className="max-h-64 space-y-3 overflow-y-auto pr-1">
                     {pendingInvites.map((invite) => (
                       <motion.div 
                         key={invite.id} 
                         whileHover={{ scale: 1.02 }}
-                        className="p-3 bg-accent/10 border border-accent/30 rounded-lg hover:bg-accent/15 hover:border-accent/40 transition-all"
-                      >
-                        <p className="text-sm font-medium text-foreground mb-1">{invite.projectName}</p>
-                        <p className="text-xs text-muted-foreground mb-3">
-                          From: {invite.invitedByName}
-                        </p>
+                          className="rounded-lg border border-accent/30 bg-accent/10 p-3 transition-all hover:border-accent/40 hover:bg-accent/20"
+                        >
+                          <p className="mb-1 text-sm font-medium text-foreground">{invite.projectName}</p>
+                          <p className="mb-3 text-xs text-muted-foreground">From {invite.invitedByName}</p>
                         <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            className="flex-1 text-xs shadow-sm"
-                            onClick={() => handleAcceptInvite(invite.id, invite.projectName)}
-                          >
+                            <Button size="sm" className="flex-1 text-xs shadow-sm" onClick={() => handleAcceptInvite(invite.id, invite.projectName)}>
                             Accept
                           </Button>
                           <Button
@@ -641,36 +731,46 @@ const Dashboard: React.FC = () => {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8">
-                    <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-primary/10 flex items-center justify-center">
-                      <EnvelopeIcon className="w-8 h-8 text-primary" />
+                    <div className="py-8 text-center">
+                      <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                        <EnvelopeIcon className="h-8 w-8 text-primary" />
                     </div>
                     <p className="text-sm font-medium text-foreground">No pending invites</p>
-                    <p className="text-xs text-muted-foreground mt-1">You're up to date</p>
+                      <p className="mt-1 text-xs text-muted-foreground">You're fully connected.</p>
                   </div>
                 )}
               </CardContent>
             </Card>
           </motion.div>
-      </div>
+          </motion.div>
+        </PageSection>
 
-        {/* Productivity & Sales Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {/* Productivity Tracking Chart */}
+        <PageSection
+          title="Performance analytics"
+          description="Visualize directional trends across productivity and revenue."
+          surface="minimal"
+        >
+          <motion.div
+            variants={staggerContainer}
+            initial="initial"
+            animate="animate"
+            className="grid grid-cols-1 gap-5 lg:grid-cols-2"
+          >
           <motion.div variants={staggerItem}>
-            <Card className="border-border/60 bg-card/80 backdrop-blur-sm shadow-md hover:shadow-lg transition-shadow">
+              <Card className="border-border/60 bg-card/85 backdrop-blur-sm shadow-md transition-shadow hover:shadow-xl">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/20">
+                      <div className="rounded-lg bg-gradient-to-br from-emerald-500/20 to-teal-500/20 p-1.5">
                       <TasksIcon className="h-4 w-4 text-emerald-500" />
                     </div>
-                    Work Productivity
+                      Work productivity
                   </CardTitle>
-                  <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
-                    Last 7 Days
+                    <Badge variant="secondary" className="border-emerald-500/20 bg-emerald-500/10 text-emerald-600">
+                      Last 7 days
                   </Badge>
                 </div>
+                  <CardDescription>Completed, in-progress, and newly created tasks each day.</CardDescription>
               </CardHeader>
               <CardContent>
                 {tasksLoading ? (
@@ -680,82 +780,58 @@ const Dashboard: React.FC = () => {
                     <AreaChart data={productivityData}>
                       <defs>
                         <linearGradient id="completedGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="oklch(var(--chart-2))" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="oklch(var(--chart-2))" stopOpacity={0}/>
+                            <stop offset="5%" stopColor="oklch(var(--chart-2))" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="oklch(var(--chart-2))" stopOpacity={0} />
                         </linearGradient>
                         <linearGradient id="inProgressGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="oklch(var(--chart-3))" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="oklch(var(--chart-3))" stopOpacity={0}/>
+                            <stop offset="5%" stopColor="oklch(var(--chart-3))" stopOpacity={0.3} />
+                            <stop offset="95%" stopColor="oklch(var(--chart-3))" stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.2} />
-                      <XAxis 
-                        dataKey="day" 
-                        tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
-                        axisLine={{ stroke: 'var(--border)' }}
-                      />
-                      <YAxis 
-                        tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
-                        axisLine={{ stroke: 'var(--border)' }}
-                      />
+                        <XAxis dataKey="day" tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }} axisLine={{ stroke: 'var(--border)' }} />
+                        <YAxis tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }} axisLine={{ stroke: 'var(--border)' }} />
                       <RechartsTooltip
                         contentStyle={{
                           backgroundColor: 'var(--card)',
                           border: '1px solid var(--border)',
-                          borderRadius: '8px',
-                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                            borderRadius: '16px',
+                            boxShadow: '0 18px 40px -24px rgba(11, 56, 255, 0.4)',
                         }}
                         labelStyle={{ color: 'var(--foreground)', fontWeight: 600 }}
                       />
-                      <Legend 
-                        wrapperStyle={{ color: 'var(--foreground)', paddingTop: '10px' }}
-                        iconType="circle"
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="completed" 
-                        stroke="oklch(var(--chart-2))" 
-                        strokeWidth={2}
-                        fill="url(#completedGradient)"
-                        name="Completed"
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="inProgress" 
-                        stroke="oklch(var(--chart-3))" 
-                        strokeWidth={2}
-                        fill="url(#inProgressGradient)"
-                        name="In Progress"
-                      />
+                        <Legend wrapperStyle={{ color: 'var(--foreground)', paddingTop: '10px' }} iconType="circle" />
+                        <Area type="monotone" dataKey="completed" stroke="oklch(var(--chart-2))" strokeWidth={2} fill="url(#completedGradient)" name="Completed" />
+                        <Area type="monotone" dataKey="inProgress" stroke="oklch(var(--chart-3))" strokeWidth={2} fill="url(#inProgressGradient)" name="In progress" />
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                      <TasksIcon className="w-8 h-8 text-emerald-500" />
+                    <div className="py-12 text-center">
+                      <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10">
+                        <TasksIcon className="h-8 w-8 text-emerald-500" />
                     </div>
-                    <p className="text-sm font-medium text-foreground mb-1">No tasks yet</p>
-                    <p className="text-xs text-muted-foreground">Create tasks to track your productivity</p>
+                      <p className="mb-1 text-sm font-medium text-foreground">No tasks yet</p>
+                      <p className="text-xs text-muted-foreground">Create tasks to track your productivity.</p>
                   </div>
                 )}
               </CardContent>
             </Card>
           </motion.div>
 
-          {/* Monthly Sales Chart */}
           <motion.div variants={staggerItem}>
-            <Card className="border-border/60 bg-card/80 backdrop-blur-sm shadow-md hover:shadow-lg transition-shadow">
+              <Card className="border-border/60 bg-card/85 backdrop-blur-sm shadow-md transition-shadow hover:shadow-xl">
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
-                    <div className="p-1.5 rounded-lg bg-gradient-to-br from-blue-500/20 to-cyan-500/20">
+                      <div className="rounded-lg bg-gradient-to-br from-blue-500/20 to-cyan-500/20 p-1.5">
                       <svg className="h-4 w-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                       </svg>
                     </div>
-                    Monthly Sales
+                      Monthly sales
                   </CardTitle>
                 </div>
+                  <CardDescription>Month-over-month revenue performance.</CardDescription>
               </CardHeader>
               <CardContent>
                 {loading ? (
@@ -765,72 +841,67 @@ const Dashboard: React.FC = () => {
                     <BarChart data={salesData}>
                       <defs>
                         <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="oklch(var(--chart-1))" stopOpacity={0.8}/>
-                          <stop offset="95%" stopColor="oklch(var(--chart-6))" stopOpacity={0.8}/>
+                            <stop offset="5%" stopColor="oklch(var(--chart-1))" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="oklch(var(--chart-6))" stopOpacity={0.8} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.2} />
-                      <XAxis 
-                        dataKey="name" 
-                        tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
-                        axisLine={{ stroke: 'var(--border)' }}
-                      />
-                      <YAxis 
-                        tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
-                        axisLine={{ stroke: 'var(--border)' }}
-                      />
+                        <XAxis dataKey="name" tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }} axisLine={{ stroke: 'var(--border)' }} />
+                        <YAxis tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }} axisLine={{ stroke: 'var(--border)' }} />
                       <RechartsTooltip
                         contentStyle={{
                           backgroundColor: 'var(--card)',
                           border: '1px solid var(--border)',
-                          borderRadius: '8px',
-                          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                            borderRadius: '16px',
+                            boxShadow: '0 18px 40px -24px rgba(11, 56, 255, 0.4)',
                         }}
                         labelStyle={{ color: 'var(--foreground)', fontWeight: 600 }}
                       />
                       <Legend wrapperStyle={{ color: 'var(--foreground)', paddingTop: '10px' }} />
-                      <Bar 
-                        dataKey="Sales" 
-                        fill="url(#salesGradient)" 
-                        radius={[8, 8, 0, 0]}
-                        name="Sales ($)"
-                      />
+                        <Bar dataKey="Sales" fill="url(#salesGradient)" radius={[12, 12, 0, 0]} name="Sales ($)" />
                     </BarChart>
                   </ResponsiveContainer>
                 ) : (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 mx-auto mb-3 rounded-full bg-blue-500/10 flex items-center justify-center">
-                      <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="py-12 text-center">
+                      <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-blue-500/10">
+                        <svg className="h-8 w-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                       </svg>
                     </div>
-                    <p className="text-sm font-medium text-foreground mb-1">No sales data yet</p>
-                    <p className="text-xs text-muted-foreground">Upload data to see your sales chart</p>
+                      <p className="mb-1 text-sm font-medium text-foreground">No sales data yet</p>
+                      <p className="text-xs text-muted-foreground">Upload data to visualise your revenue trajectory.</p>
                   </div>
                 )}
               </CardContent>
             </Card>
           </motion.div>
-        </div>
+          </motion.div>
+        </PageSection>
 
-        {/* AI Insights Card - Full Width */}
-        <motion.div variants={staggerItem}>
-            <Card className="hover:shadow-xl transition-all duration-200 bg-gradient-to-br from-purple-500/10 via-primary/10 to-cyan-500/10 border-purple-500/30 shadow-md">
+        <PageSection
+          title="Aether Copilot"
+          description="AI intelligence distilled from your tasks, projects, and revenue streams."
+          surface="none"
+          padded={false}
+        >
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={transitions.smooth}>
+            <Card className="bg-gradient-to-br from-purple-500/10 via-primary/10 to-cyan-500/10 border-purple-500/30 shadow-md transition-shadow hover:shadow-xl">
               <CardHeader>
                 <div className="flex items-center gap-2">
-                  <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-primary/20">
+                  <div className="rounded-lg bg-gradient-to-br from-purple-500/20 to-primary/20 p-2">
                     <SparklesIcon className="h-5 w-5 text-purple-500" />
                   </div>
-                  <CardTitle className="text-foreground">Aether Copilot Insights</CardTitle>
+                  <CardTitle className="text-foreground">Aether Copilot insights</CardTitle>
                 </div>
+                <CardDescription>Personalised actions to keep momentum.</CardDescription>
               </CardHeader>
               <CardContent>
                 {insightsLoading ? (
                   <div className="space-y-4">
                     {Array.from({ length: 3 }).map((_, i) => (
-                      <div key={i} className="bg-muted/50 p-4 rounded-xl border border-border animate-pulse">
-                        <div className="h-4 bg-muted rounded w-1/3 mb-2"></div>
-                        <div className="h-3 bg-muted rounded w-full"></div>
+                      <div key={i} className="animate-pulse rounded-xl border border-border/40 bg-muted/40 p-4">
+                        <div className="mb-2 h-4 w-1/3 rounded bg-muted" />
+                        <div className="h-3 w-full rounded bg-muted" />
                       </div>
                     ))}
                   </div>
@@ -851,36 +922,31 @@ const Dashboard: React.FC = () => {
                       const dotColor = dotColors[insight.type] || dotColors.recommendation;
                       
                       return (
-                        <div key={index} className={`bg-gradient-to-r ${colorClass} p-4 rounded-xl border`}>
-                          <p className={`font-semibold mb-2 flex items-center gap-2`}>
-                            <span className={`w-2 h-2 rounded-full ${dotColor}`}></span>
+                        <div key={index} className={cn('rounded-xl border bg-gradient-to-r p-4 shadow-sm transition hover:shadow-md', colorClass)}>
+                          <p className="mb-2 flex items-center gap-2 font-semibold">
+                            <span className={cn('h-2 w-2 rounded-full', dotColor)}></span>
                             {insight.title}
                           </p>
-                          <p className="text-sm text-foreground/80">
-                            {insight.content}
-                          </p>
+                          <p className="text-sm text-foreground/80">{insight.content}</p>
                         </div>
                       );
                     })}
                   </div>
                 ) : (
-                  <div className="bg-muted/50 p-4 rounded-lg text-center border border-border">
-                    <p className="text-muted-foreground text-sm mb-3">
-                      Upload your business data to unlock AI-powered insights and recommendations tailored to your business.
+                  <div className="rounded-lg border border-border bg-muted/40 p-4 text-center">
+                    <p className="mb-3 text-sm text-muted-foreground">
+                      Upload your business data to unlock AI-powered insights tailored to your business.
                     </p>
-                    <Button
-                      size="sm"
-                      onClick={() => setIsUploadModalOpen(true)}
-                      className="w-full"
-                    >
-                      Upload Data Now
+                    <Button size="sm" onClick={() => setIsUploadModalOpen(true)} className="w-full sm:w-auto">
+                      Upload data now
                     </Button>
                   </div>
                 )}
               </CardContent>
             </Card>
         </motion.div>
-      </motion.div>
+        </PageSection>
+      </PageContainer>
     </>
   );
 };

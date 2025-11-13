@@ -709,7 +709,7 @@ const Leads: React.FC = () => {
         setPersonalizedMessage('');
         setResearchHighlights(buildResearchHighlights(lead));
     };
-
+    
     const handleUpdateStatus = async (leadId: string, status: Lead['status']) => {
         await updateLeadStatus(leadId, status);
     };
@@ -1285,8 +1285,8 @@ const Leads: React.FC = () => {
                             ))}
                         </div>
                     </div>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
                             <thead className="bg-muted/40">
                                 <tr className="text-xs uppercase tracking-wide text-muted-foreground">
                                     <th className="px-4 py-3 font-semibold text-foreground">Lead</th>
@@ -1294,15 +1294,15 @@ const Leads: React.FC = () => {
                                     <th className="px-4 py-3 font-semibold text-foreground">Status</th>
                                     <th className="px-4 py-3 font-semibold text-foreground">Source</th>
                                     <th className="px-4 py-3 font-semibold text-right text-foreground">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {loading ? (
-                                    <tr>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {loading ? (
+                                        <tr>
                                         <td className="px-4 py-6 text-center text-muted-foreground" colSpan={5}>
                                             Loading leads...
                                         </td>
-                                    </tr>
+                                        </tr>
                                 ) : filteredLeads.length > 0 ? (
                                     filteredLeads.map((lead) => (
                                         <tr
@@ -1386,13 +1386,13 @@ const Leads: React.FC = () => {
                                                 <p>No leads found. Add your first lead to get started.</p>
                                             </div>
                                         </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </Card>
-        </div>
+                                        </tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Card>
+            </div>
         </>
     );
 };

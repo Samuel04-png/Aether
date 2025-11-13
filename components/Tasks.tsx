@@ -9,21 +9,29 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
 import { fadeInUp, staggerContainer, staggerItem, transitions } from '@/lib/motion';
 import { cn } from '@/lib/utils';
+import TaskStatusDialog from './TaskStatusDialog';
+import { PageContainer, PageHeader, PageSection } from './layout/Page';
 
 type Column = { id: TaskStatus; title: string; tasks: Task[] };
 
-const TaskCard: React.FC<{ task: Task; onDragStart: (taskId: string) => void; onDelete: (taskId: string) => void }> = ({ task, onDragStart, onDelete }) => (
+const TaskCard: React.FC<{ 
+  task: Task; 
+  onDragStart: (taskId: string) => void; 
+  onDelete: (taskId: string) => void;
+  onClick: (task: Task) => void;
+}> = ({ task, onDragStart, onDelete, onClick }) => (
   <motion.div
     draggable
     onDragStart={() => onDragStart(task.id)}
-    className="p-3 bg-card border border-border rounded-md shadow-sm mb-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
+    onClick={() => onClick(task)}
+    className="p-3 bg-card border border-border rounded-md shadow-sm mb-3 cursor-pointer hover:shadow-md transition-shadow"
     whileHover={{ scale: 1.01 }}
     whileDrag={{ scale: 0.98, opacity: 0.8 }}
   >
@@ -62,6 +70,8 @@ const Tasks: React.FC = () => {
     const [manualTitle, setManualTitle] = useState('');
     const [manualDescription, setManualDescription] = useState('');
     const [manualDueDate, setManualDueDate] = useState('');
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
 
     const columns: Omit<Column, 'tasks'>[] = [
         { id: 'todo', title: 'To Do' },
@@ -116,6 +126,27 @@ const Tasks: React.FC = () => {
                 variant: 'destructive',
                 title: 'Error',
                 description: error?.message ?? 'Failed to delete task.',
+            });
+        }
+    };
+
+    const handleTaskClick = (task: Task) => {
+        setSelectedTask(task);
+        setIsStatusDialogOpen(true);
+    };
+
+    const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
+        try {
+            await updateTaskStatus(taskId, newStatus);
+            toast({
+                title: 'Status Updated',
+                description: `Task status changed to ${newStatus === 'todo' ? 'To Do' : newStatus === 'inprogress' ? 'In Progress' : 'Done'}`,
+            });
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: error?.message ?? 'Failed to update task status.',
             });
         }
     };
@@ -202,8 +233,36 @@ const Tasks: React.FC = () => {
   const inProgressPercent = totalTasks > 0 ? Math.round((inProgressTasks / totalTasks) * 100) : 0;
   const todoPercent = totalTasks > 0 ? Math.round((todoTasks / totalTasks) * 100) : 0;
 
+  const taskStats = [
+    {
+      label: 'Completion rate',
+      value: `${overallProgress}%`,
+      trend: overallProgress >= 70 ? 'up' : overallProgress <= 30 ? 'down' : 'steady',
+      helper: `${completedTasks} of ${totalTasks} tasks done`,
+    },
+    {
+      label: 'In progress',
+      value: `${inProgressTasks}`,
+      trend: inProgressTasks > 0 ? 'steady' : 'up',
+      helper: `${todoTasks} queued`,
+    },
+    {
+      label: 'Team coverage',
+      value: `${members.length}`,
+      trend: members.length > 0 ? 'up' : 'steady',
+      helper: 'Collaborators assignable',
+    },
+  ] as const;
+
   return (
     <>
+      <TaskStatusDialog
+        open={isStatusDialogOpen}
+        onOpenChange={setIsStatusDialogOpen}
+        task={selectedTask}
+        onStatusChange={handleStatusChange}
+      />
+      
       <Dialog open={isManualModalOpen} onOpenChange={setIsManualModalOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -255,172 +314,172 @@ const Tasks: React.FC = () => {
         </DialogContent>
       </Dialog>
       
-      <motion.div
-        initial={fadeInUp.initial}
-        animate={fadeInUp.animate}
-        exit={fadeInUp.exit}
-        transition={transitions.quick}
-        className="space-y-6"
-      >
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <motion.h1
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={transitions.quick}
-              className="text-3xl font-bold text-foreground"
-            >
-              Tasks
-            </motion.h1>
-            <p className="text-muted-foreground mt-1">Organize and track your team's work.</p>
-          </div>
-          <Dialog open={isManualModalOpen} onOpenChange={setIsManualModalOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <PlusIcon className="h-4 w-4" />
-                New Task
-              </Button>
-            </DialogTrigger>
-          </Dialog>
-        </div>
+      <PageContainer className="space-y-12 pb-24">
+        <PageHeader
+          eyebrow="Operations"
+          title="Tasks"
+          subtitle="Organise and track your team's work across stages."
+          actions={
+            <Button className="gap-2" onClick={() => setIsManualModalOpen(true)}>
+              <PlusIcon className="h-4 w-4" />
+              New task
+            </Button>
+          }
+          stats={taskStats}
+        />
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <SparklesIcon className="h-5 w-5 text-primary" />
-              <CardTitle>Create Task with AI</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <Input
-                type="text"
-                placeholder="e.g., 'Email the team about the all-hands meeting tomorrow at 10am'"
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !isCreating && aiPrompt.trim()) {
-                    handleCreateTask();
-                  }
-                }}
-              />
-              <Button onClick={handleCreateTask} disabled={isCreating || !aiPrompt.trim()}>
-                {isCreating ? 'Creating...' : 'Create'}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Progress Overview */}
-        {totalTasks > 0 && (
-          <Card>
+        <PageSection
+          title="Intelligent task creation"
+          description="Generate tasks with AI or capture quick notes manually."
+        >
+          <Card className="border-border/60 bg-card/80 backdrop-blur-sm">
             <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Overall Progress</CardTitle>
-                <span className="text-2xl font-bold text-primary">{overallProgress}%</span>
+              <div className="flex items-center gap-3">
+                <SparklesIcon className="h-5 w-5 text-primary" />
+                <CardTitle>Create task with AI</CardTitle>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Overall Progress Bar */}
-              <div className="space-y-2">
-                <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
-                  <motion.div 
-                    className="h-full bg-gradient-to-r from-brand to-cyan-500 rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${overallProgress}%` }}
-                    transition={{ duration: 0.5, ease: 'easeOut' }}
-                  />
-                </div>
-                <div className="flex justify-between text-xs text-muted-foreground">
-                  <span>{completedTasks} of {totalTasks} tasks completed</span>
-                  <span>{totalTasks - completedTasks} remaining</span>
-                </div>
+            <CardContent>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <Input
+                  type="text"
+                  placeholder="e.g., 'Email the team about the all-hands meeting tomorrow at 10am'"
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !isCreating && aiPrompt.trim()) {
+                      handleCreateTask();
+                    }
+                  }}
+                />
+                <Button onClick={handleCreateTask} disabled={isCreating || !aiPrompt.trim()}>
+                  {isCreating ? 'Creating...' : 'Create'}
+                </Button>
               </div>
+            </CardContent>
+          </Card>
+        </PageSection>
 
-              {/* Breakdown by Status */}
-              <div className="grid grid-cols-3 gap-4 pt-2">
-                {/* To Do */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-muted-foreground">To Do</span>
-                    <span className="text-sm font-bold text-foreground">{todoPercent}%</span>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <motion.div 
-                      className="h-full bg-primary rounded-full"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${todoPercent}%` }}
-                      transition={{ duration: 0.5, ease: 'easeOut' }}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">{todoTasks} tasks</p>
+        {totalTasks > 0 && (
+          <PageSection
+            title="Team velocity"
+            description="Monitor throughput across each status lane."
+          >
+            <Card className="border-border/60 bg-card/80 backdrop-blur-sm">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle>Overall progress</CardTitle>
+                  <span className="text-2xl font-bold text-primary">{overallProgress}%</span>
                 </div>
-
-                {/* In Progress */}
+              </CardHeader>
+              <CardContent className="space-y-4">
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-yellow-400">In Progress</span>
-                    <span className="text-sm font-bold text-yellow-300">{inProgressPercent}%</span>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <motion.div 
-                      className="h-full bg-yellow-400 rounded-full"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${inProgressPercent}%` }}
-                      transition={{ duration: 0.5, ease: 'easeOut' }}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">{inProgressTasks} tasks</p>
-                </div>
-
-                {/* Done */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-green-400">Done</span>
-                    <span className="text-sm font-bold text-green-300">{overallProgress}%</span>
-                  </div>
-                  <div className="w-full bg-muted rounded-full h-2">
-                    <motion.div 
-                      className="h-full bg-green-400 rounded-full"
+                  <div className="h-3 w-full overflow-hidden rounded-full bg-muted">
+                    <motion.div
+                      className="h-full rounded-full bg-gradient-to-r from-brand to-cyan-500"
                       initial={{ width: 0 }}
                       animate={{ width: `${overallProgress}%` }}
                       transition={{ duration: 0.5, ease: 'easeOut' }}
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground">{completedTasks} tasks</p>
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{completedTasks} of {totalTasks} tasks completed</span>
+                    <span>{totalTasks - completedTasks} remaining</span>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
+
+                <div className="grid grid-cols-1 gap-4 pt-2 sm:grid-cols-3">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-muted-foreground">To do</span>
+                      <span className="text-sm font-bold text-foreground">{todoPercent}%</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-muted">
+                      <motion.div
+                        className="h-full rounded-full bg-primary"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${todoPercent}%` }}
+                        transition={{ duration: 0.5, ease: 'easeOut' }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">{todoTasks} tasks</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-yellow-400">In progress</span>
+                      <span className="text-sm font-bold text-yellow-300">{inProgressPercent}%</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-muted">
+                      <motion.div
+                        className="h-full rounded-full bg-yellow-400"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${inProgressPercent}%` }}
+                        transition={{ duration: 0.5, ease: 'easeOut' }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">{inProgressTasks} tasks</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-green-400">Done</span>
+                      <span className="text-sm font-bold text-green-300">{overallProgress}%</span>
+                    </div>
+                    <div className="h-2 w-full rounded-full bg-muted">
+                      <motion.div
+                        className="h-full rounded-full bg-green-400"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${overallProgress}%` }}
+                        transition={{ duration: 0.5, ease: 'easeOut' }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground">{completedTasks} tasks</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </PageSection>
         )}
-      
-        <motion.div
-          variants={staggerContainer}
-          initial="initial"
-          animate="animate"
-          className="grid grid-cols-1 md:grid-cols-3 gap-6 h-full"
+
+        <PageSection
+          title="Workspace board"
+          description="Drag to reprioritise tasks or click a card to update status."
+          surface="minimal"
         >
-          {columns.map((column, index) => {
-            const tasksForColumn = columnTasks[column.id];
-            return (
-              <motion.div
-                key={column.id}
-                variants={staggerItem}
-                className="bg-card border border-border rounded-lg p-4 flex flex-col"
-                onDragOver={handleDragOver}
-                onDrop={(e) => handleDrop(e, column.id)}
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-bold text-foreground text-lg tracking-wider">{column.title}</h3>
-                  <Badge variant="secondary">{tasksForColumn.length}</Badge>
-                </div>
-                <div className="flex-1 space-y-3">
-                  {loading ? (
-                    <p className="text-sm text-muted-foreground">Loading tasks...</p>
-                  ) : tasksForColumn.length > 0 ? tasksForColumn.map(task => (
-                    <div key={task.id}>
-                        <TaskCard task={task} onDragStart={handleDragStart} onDelete={handleDeleteTask} />
-                        <div className="flex items-center gap-2 mt-2">
+          <motion.div
+            variants={staggerContainer}
+            initial="initial"
+            animate="animate"
+            className="grid grid-cols-1 gap-6 md:grid-cols-3"
+          >
+            {columns.map((column) => {
+              const tasksForColumn = columnTasks[column.id];
+              return (
+                <motion.div
+                  key={column.id}
+                  variants={staggerItem}
+                  className="flex flex-col rounded-3xl border border-border/50 bg-card/85 p-4 backdrop-blur-sm"
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, column.id)}
+                >
+                  <div className="mb-4 flex items-center justify-between">
+                    <h3 className="text-lg font-semibold tracking-wider text-foreground">{column.title}</h3>
+                    <Badge variant="secondary">{tasksForColumn.length}</Badge>
+                  </div>
+                  <div className="flex-1 space-y-3">
+                    {loading ? (
+                      <p className="text-center text-sm text-muted-foreground">Loading tasks...</p>
+                    ) : tasksForColumn.length > 0 ? (
+                      tasksForColumn.map((task) => (
+                        <div key={task.id}>
+                          <TaskCard
+                            task={task}
+                            onDragStart={handleDragStart}
+                            onDelete={handleDeleteTask}
+                            onClick={handleTaskClick}
+                          />
+                          <div className="mt-2 flex items-center gap-2">
                             <Select
                               value={task.assignee?.id ?? 'unassigned'}
                               onValueChange={(value) => handleAssignTask(task.id, value === 'unassigned' ? null : value)}
@@ -430,22 +489,26 @@ const Tasks: React.FC = () => {
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="unassigned">Unassigned</SelectItem>
-                                {members.map(member => (
-                                    <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
+                                {members.map((member) => (
+                                  <SelectItem key={member.id} value={member.id}>
+                                    {member.name}
+                                  </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
+                          </div>
                         </div>
-                    </div>
-                  )) : (
-                    <p className="text-sm text-muted-foreground text-center py-4">No tasks here yet.</p>
-                  )}
-                </div>
-              </motion.div>
-            )
-          })}
-        </motion.div>
-      </motion.div>
+                      ))
+                    ) : (
+                      <p className="py-4 text-center text-sm text-muted-foreground">No tasks here yet.</p>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
+          </motion.div>
+        </PageSection>
+      </PageContainer>
     </>
   );
 };

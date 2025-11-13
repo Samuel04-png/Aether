@@ -37,7 +37,8 @@ const Header: React.FC<HeaderProps> = ({ activeView, onToggleNotifications, onOp
                 animate={fadeInDown.animate}
                 exit={fadeInDown.exit}
                 transition={transitions.quick}
-                className="bg-card/90 backdrop-blur-xl px-4 py-3 flex items-center justify-between border-b border-border/60 h-16 flex-shrink-0 shadow-md z-10"
+                className="bg-card/90 backdrop-blur-xl px-4 py-3 flex items-center justify-between border-b border-border/60 h-16 flex-shrink-0 shadow-md z-10 lg:hidden"
+            
             >
                 <div className="flex items-center gap-3">
                     <Button

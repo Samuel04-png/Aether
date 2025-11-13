@@ -1,21 +1,18 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
+import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDashboard } from '@/hooks/useDashboard';
 import { useProjects } from '@/hooks/useProjects';
 import { useAssignedTasks } from '@/hooks/useAssignedTasks';
 import { useToast } from '@/hooks/use-toast';
-import { SparklesIcon } from '../shared/Icons';
-import { Send, Bot, User, X, Minimize2, Maximize2 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { cn } from '@/lib/utils';
+import { SparklesIcon, AttachmentIcon, SendIcon } from '../shared/Icons';
 import { GoogleGenAI } from '@google/genai';
+import MessageBubble from './MessageBubble';
+import { useMood } from '../../hooks/useMood';
 
 interface Message {
   id: string;
@@ -33,9 +30,8 @@ interface ByteBerryCopilotProps {
 const ByteBerryCopilot: React.FC<ByteBerryCopilotProps> = ({ userId, isOpen: controlledIsOpen, onOpenChange }) => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { emoji, mood, message: moodMessage } = useMood();
   const [internalIsOpen, setInternalIsOpen] = useState(false);
-  
-  // Use controlled state if provided, otherwise use internal state
   const isOpen = controlledIsOpen !== undefined ? controlledIsOpen : internalIsOpen;
   const setIsOpen = (open: boolean) => {
     if (onOpenChange) {
@@ -45,60 +41,78 @@ const ByteBerryCopilot: React.FC<ByteBerryCopilotProps> = ({ userId, isOpen: con
     }
   };
   
-  const [isMinimized, setIsMinimized] = useState(false);
   const [input, setInput] = useState('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = React.useRef<HTMLDivElement>(null);
 
-  // Get context data
-  const { kpis, monthlySales } = useDashboard(user?.uid);
-  const { projects } = useProjects(user?.uid);
-  const { incompleteTasks, upcomingDeadlines } = useAssignedTasks(user?.uid);
+  const { kpis, monthlySales } = useDashboard(userId);
+  const { projects } = useProjects(userId);
+  const { incompleteTasks, upcomingDeadlines } = useAssignedTasks(userId);
 
-  // Initialize with welcome message
+  const quickPrompts = useMemo(
+    () => [
+      {
+        id: 'summary',
+        label: 'Workspace summary',
+        prompt:
+          'Summarise the current workspace performance including revenue, lead velocity, and team momentum. Highlight the largest risk.',
+      },
+      {
+        id: 'next-actions',
+        label: 'Next best actions',
+        prompt:
+          'Recommend the top three actions across sales, marketing, and delivery that would create the biggest impact this week.',
+      },
+      {
+        id: 'team-health',
+        label: 'Team health',
+        prompt:
+          'Analyse team workload and deadlines. Are there any owners or upcoming dates that need attention?',
+      },
+    ],
+    []
+  );
+
   useEffect(() => {
     if (isOpen && messages.length === 0) {
-      const welcomeMessage: Message = {
+      setMessages([
+        {
         id: 'welcome',
         role: 'assistant',
-        content: `Hi! I'm Byte&Berry Copilot, your AI assistant. I can help you with:
-        
-• Understanding your dashboard metrics and KPIs
-• Analyzing your project progress
-• Managing tasks and deadlines
-• Providing business insights
-• Answering questions about your data
+          content: `Hi! I'm Byte&Berry Copilot. I can help you read your metrics, surface risks, and plan smarter next steps.
 
-What would you like to know?`,
+Ask me about revenue trends, project status, or anything else in your workspace.`,
         timestamp: new Date(),
-      };
-      setMessages([welcomeMessage]);
+        },
+      ]);
     }
   }, [isOpen, messages.length]);
   
-  // Reset messages when copilot closes
   useEffect(() => {
     if (!isOpen) {
       setMessages([]);
+      setInput('');
+      setIsLoading(false);
     }
   }, [isOpen]);
 
-  // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (scrollAreaRef.current) {
+      const viewport = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (viewport) {
+        viewport.scrollTop = viewport.scrollHeight;
+      }
+    }
   }, [messages]);
 
-  const buildContext = (): string => {
+  const buildContext = useCallback((): string => {
     const contextParts: string[] = [];
 
-    // User info
     if (user) {
       contextParts.push(`User: ${user.displayName || user.email}`);
     }
 
-    // Dashboard KPIs
     if (kpis.length > 0) {
       contextParts.push('\nCurrent KPIs:');
       kpis.forEach((kpi) => {
@@ -106,52 +120,47 @@ What would you like to know?`,
       });
     }
 
-    // Monthly sales
     if (monthlySales.length > 0) {
-      contextParts.push('\nMonthly Sales Data:');
-      monthlySales.slice(-6).forEach((sale) => {
-        contextParts.push(`- ${sale.month}: $${sale.sales.toLocaleString()}`);
+      contextParts.push('\nMonthly sales (latest 6 months):');
+      monthlySales.slice(-6).forEach((entry) => {
+        contextParts.push(`- ${entry.month}: $${entry.sales.toLocaleString()}`);
       });
     }
 
-    // Projects
     if (projects.length > 0) {
-      contextParts.push(`\nActive Projects: ${projects.length}`);
+      contextParts.push(`\nActive projects (${projects.length} total):`);
       projects.slice(0, 5).forEach((project) => {
         contextParts.push(`- ${project.name}: ${project.status} (${project.progress}% complete)`);
       });
     }
 
-    // Tasks
     if (incompleteTasks.length > 0) {
-      contextParts.push(`\nIncomplete Tasks: ${incompleteTasks.length}`);
-      incompleteTasks.slice(0, 5).forEach((task) => {
-        contextParts.push(`- ${task.title} (${task.status})`);
-      });
+      contextParts.push(`\nIncomplete tasks (${incompleteTasks.length}):`);
+      incompleteTasks.slice(0, 5).forEach((task) => contextParts.push(`- ${task.title} (${task.status})`));
     }
 
-    // Upcoming deadlines
     if (upcomingDeadlines.length > 0) {
-      contextParts.push(`\nUpcoming Deadlines: ${upcomingDeadlines.length}`);
-      upcomingDeadlines.slice(0, 3).forEach((deadline) => {
-        contextParts.push(`- ${deadline.title}: ${deadline.dueDate}`);
-      });
+      contextParts.push('\nUpcoming deadlines:');
+      upcomingDeadlines.slice(0, 3).forEach((deadline) => contextParts.push(`- ${deadline.title}: ${deadline.dueDate}`));
     }
 
     return contextParts.join('\n');
-  };
+  }, [user, kpis, monthlySales, projects, incompleteTasks, upcomingDeadlines]);
 
-  const handleSendMessage = async () => {
-    if (!input.trim() || isLoading) return;
+  const sendPrompt = useCallback(
+    async (rawContent: string) => {
+      const trimmed = rawContent.trim();
+      if (!trimmed || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input.trim(),
+        content: trimmed,
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, userMessage]);
+      const nextMessages = [...messages, userMessage];
+      setMessages(nextMessages);
     setInput('');
     setIsLoading(true);
 
@@ -163,15 +172,22 @@ What would you like to know?`,
 
       const ai = new GoogleGenAI({ apiKey });
       const context = buildContext();
+        const conversationHistory = nextMessages
+          .slice(-6)
+          .map((msg) => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+          .join('\n\n');
 
-      const prompt = `You are Byte&Berry Copilot, an AI assistant for the Aether business management platform. You help users understand their business data and provide actionable insights.
+        const prompt = `You are Byte&Berry Copilot, an AI assistant inside the Aether workspace.
 
-Context about the user's business:
+Workspace context:
 ${context}
 
-User's question: ${userMessage.content}
+Conversation so far:
+${conversationHistory}
 
-Provide a helpful, concise response. If the user asks about specific data, reference the context above. Be friendly and professional.`;
+User: ${trimmed}
+
+Answer in a friendly, concise tone. Use bullet points when helpful and surface specific data-driven insights.`;
 
       const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
@@ -181,207 +197,198 @@ Provide a helpful, concise response. If the user asks about specific data, refer
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: response.text || 'I apologize, but I encountered an error processing your request.',
+          content:
+            response.text ||
+            "I'm sorry—I'm having trouble reading that data right now. Could you try asking in a different way?",
         timestamp: new Date(),
       };
 
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (error: any) {
-      console.error('Error getting AI response:', error);
-      
-      const errorMessage: Message = {
+        console.error('ByteBerry Copilot error:', error);
+        console.error('Error details:', {
+          message: error?.message,
+          name: error?.name,
+          stack: error?.stack,
+          code: error?.code,
+          status: error?.status,
+        });
+        
+        let errorMessage = 'I hit a snag interpreting that. Give it another go in a moment, or try rephrasing!';
+        let toastTitle = 'Copilot Error';
+        
+        // Check for specific error types
+        if (error?.message?.includes('API key')) {
+          errorMessage = '🔑 AI service is not configured. Please set VITE_GEMINI_API_KEY in your .env file.';
+          toastTitle = 'API Key Missing';
+        } else if (error?.code === 429 || error?.status === 'RESOURCE_EXHAUSTED' || error?.message?.includes('quota')) {
+          const retryDelay = error?.details?.find((d: any) => d['@type']?.includes('RetryInfo'))?.retryDelay || '8s';
+          errorMessage = `⏱️ Daily quota limit reached (250 requests). The free tier resets daily.
+
+Options:
+1. Wait ${retryDelay} and try again
+2. Try again tomorrow (quota resets at midnight PST)
+3. Get a paid API key at https://ai.google.dev/pricing
+
+You can still use the app - only the AI assistant is temporarily unavailable.`;
+          toastTitle = 'Quota Limit Reached';
+        } else if (error?.message) {
+          errorMessage = `🤖 ${error.message}`;
+        }
+        
+        setMessages((prev) => [
+          ...prev,
+          {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: error?.message?.includes('API key')
-          ? 'AI service is not configured. Please contact support.'
-          : 'I apologize, but I encountered an error. Please try again or rephrase your question.',
+            content: errorMessage,
         timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, errorMessage]);
-      
+          },
+        ]);
       toast({
         variant: 'destructive',
-        title: 'Error',
-        description: 'Failed to get AI response. Please try again.',
+          title: toastTitle,
+          description: errorMessage.split('\n')[0], // First line only for toast
+          duration: 8000, // Longer duration for quota error
       });
     } finally {
       setIsLoading(false);
     }
-  };
+    },
+    [messages, isLoading, buildContext, toast]
+  );
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleSendMessage = useCallback(() => {
+    void sendPrompt(input);
+  }, [input, sendPrompt]);
+
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
   };
 
-  return (
-    <>
-      {/* Floating Button */}
-      {!isOpen && (
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="fixed bottom-6 right-6 z-[100] pointer-events-auto"
-        >
-          <Button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              setIsOpen(true);
-            }}
-            size="lg"
-            className="rounded-full h-14 w-14 shadow-lg hover:shadow-xl transition-shadow gap-0 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer"
-            type="button"
-          >
-            <SparklesIcon className="h-6 w-6" />
-          </Button>
-        </motion.div>
-      )}
+  const handleQuickPrompt = (prompt: string) => {
+    setInput(prompt);
+    void sendPrompt(prompt);
+  };
 
-      {/* Copilot Window */}
+  return (
       <AnimatePresence>
         {isOpen && (
           <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            className={cn(
-              "fixed bottom-6 right-6 z-[100] w-full max-w-md pointer-events-auto",
-              isMinimized ? "h-16" : "h-[600px]"
-            )}
-          >
-            <Card className="h-full flex flex-col shadow-2xl border-border">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3 border-b">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <SparklesIcon className="h-4 w-4 text-primary" />
+          exit={{ opacity: 0, y: 18, scale: 0.96 }}
+          transition={{ duration: 0.22, ease: 'easeOut' }}
+          className="pointer-events-auto fixed bottom-8 right-8 z-[120] w-full max-w-lg"
+        >
+          <Card className="overflow-hidden rounded-3xl border border-white/15 bg-white/95 shadow-[0_35px_90px_-45px_rgba(12,15,30,0.75)] backdrop-blur dark:bg-[#0f1422]/95 dark:text-white">
+            <div className="flex items-start justify-between border-b border-white/20 bg-gradient-to-br from-primary/12 via-primary/6 to-transparent px-6 py-5">
+              <div className="space-y-2">
+                <div className="flex items-center gap-3">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-primary">
+                    <SparklesIcon className="h-5 w-5" />
+                  </span>
+                  <div>
+                    <p className="text-base font-semibold tracking-tight text-foreground">Byte&Berry Copilot</p>
+                    <p className="text-xs text-muted-foreground">{moodMessage}</p>
                   </div>
-                  <CardTitle className="text-lg">Byte&Berry Copilot</CardTitle>
-                  <Badge variant="secondary" className="text-xs">AI</Badge>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => setIsMinimized(!isMinimized)}
-                  >
-                    {isMinimized ? (
-                      <Maximize2 className="h-4 w-4" />
-                    ) : (
-                      <Minimize2 className="h-4 w-4" />
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => {
-                      setIsOpen(false);
-                      setIsMinimized(false);
-                    }}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground/75">
+                  <span className="rounded-full border border-border/60 px-2 py-0.5 capitalize">
+                    <span className="mr-1">{emoji}</span>
+                    {mood}
+                  </span>
+                  <span className="hidden sm:inline">Ask me anything about your business data.</span>
                 </div>
-              </CardHeader>
+              </div>
+                  <Button
+                size="icon"
+                    variant="ghost"
+                className="h-8 w-8 rounded-full hover:bg-white/60 dark:hover:bg-white/20"
+                onClick={() => setIsOpen(false)}
+              >
+                <span className="sr-only">Close copilot</span>
+                ✕
+                  </Button>
+            </div>
 
-              {!isMinimized && (
-                <>
-                  <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
-                    <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
+            <div className="border-b border-white/15 px-6 py-3">
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {quickPrompts.map((prompt) => (
+                  <Button
+                    key={prompt.id}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleQuickPrompt(prompt.prompt)}
+                    className="h-auto rounded-full border-border/60 bg-white/75 px-3 py-1 text-xs font-medium text-muted-foreground transition hover:border-primary/40 hover:text-primary dark:bg-white/10 dark:text-white/70"
+                  >
+                    {prompt.label}
+                  </Button>
+                ))}
+              </div>
+                </div>
+
+            <ScrollArea ref={scrollAreaRef} className="h-[340px] px-6 py-5">
                       <div className="space-y-4">
+                <AnimatePresence initial={false}>
                         {messages.map((message) => (
-                          <div
-                            key={message.id}
-                            className={cn(
-                              "flex gap-3",
-                              message.role === 'user' ? 'justify-end' : 'justify-start'
-                            )}
-                          >
-                            {message.role === 'assistant' && (
-                              <Avatar className="h-8 w-8 flex-shrink-0">
-                                <AvatarFallback className="bg-primary/10 text-primary">
-                                  <Bot className="h-4 w-4" />
-                                </AvatarFallback>
-                              </Avatar>
-                            )}
-                            <div
-                              className={cn(
-                                "rounded-lg px-4 py-2 max-w-[80%]",
-                                message.role === 'user'
-                                  ? 'bg-primary text-primary-foreground'
-                                  : 'bg-muted text-foreground'
-                              )}
-                            >
-                              <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                              <p className="text-xs opacity-70 mt-1">
-                                {message.timestamp.toLocaleTimeString([], {
-                                  hour: 'numeric',
-                                  minute: '2-digit',
-                                })}
-                              </p>
-                            </div>
-                            {message.role === 'user' && (
-                              <Avatar className="h-8 w-8 flex-shrink-0">
-                                <AvatarImage src={user?.photoURL || undefined} />
-                                <AvatarFallback>
-                                  <User className="h-4 w-4" />
-                                </AvatarFallback>
-                              </Avatar>
-                            )}
-                          </div>
-                        ))}
-                        {isLoading && (
-                          <div className="flex gap-3 justify-start">
-                            <Avatar className="h-8 w-8 flex-shrink-0">
-                              <AvatarFallback className="bg-primary/10 text-primary">
-                                <Bot className="h-4 w-4" />
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="bg-muted rounded-lg px-4 py-2">
-                              <div className="flex gap-1">
-                                <div className="w-2 h-2 bg-foreground/40 rounded-full animate-bounce" />
-                                <div className="w-2 h-2 bg-foreground/40 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }} />
-                                <div className="w-2 h-2 bg-foreground/40 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                              </div>
-                            </div>
-                          </div>
-                        )}
-                        <div ref={messagesEndRef} />
+                    <MessageBubble key={message.id} {...message} />
+                  ))}
+                </AnimatePresence>
+                {isLoading && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="flex items-center gap-2 rounded-[12px] border border-border/50 bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
+                  >
+                    <SparklesIcon className="h-4 w-4 animate-spin text-primary/80" />
+                    <span>Copilot is thinking…</span>
+                  </motion.div>
+                )}
                       </div>
                     </ScrollArea>
 
-                    <div className="border-t p-4">
-                      <div className="flex gap-2">
+            <div className="border-t border-white/15 px-6 py-4">
+              <div className="flex items-end gap-3">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className="h-11 w-11 rounded-[12px] border border-border/60 text-muted-foreground hover:border-primary/50 hover:bg-primary/10 hover:text-primary"
+                  aria-label="Attach file"
+                >
+                  <AttachmentIcon className="h-5 w-5" />
+                </Button>
                         <Input
                           value={input}
                           onChange={(e) => setInput(e.target.value)}
-                          onKeyPress={handleKeyPress}
-                          placeholder="Ask me anything about your business..."
+                  onKeyDown={handleKeyPress}
+                  placeholder="Ask the copilot anything about your business..."
                           disabled={isLoading}
-                          className="flex-1"
+                  className="flex-1 rounded-[12px] border border-border/60 bg-white/85 px-4 py-3 text-sm text-foreground shadow-inner focus-visible:ring-2 focus-visible:ring-primary/30 dark:bg-white/10 dark:text-white"
                         />
                         <Button
+                  type="button"
+                  disabled={!input.trim() || isLoading}
                           onClick={handleSendMessage}
-                          disabled={!input.trim() || isLoading}
-                          size="icon"
+                  className="h-11 rounded-[12px] bg-[linear-gradient(135deg,#4C7DF0_0%,#7A5CF0_80%)] px-5 text-sm font-semibold text-white shadow-[0_18px_36px_-20px_rgba(76,125,240,0.8)] transition-transform hover:translate-y-[-1px] hover:shadow-[0_20px_38px_-18px_rgba(76,125,240,0.95)] disabled:opacity-70"
                         >
-                          <Send className="h-4 w-4" />
+                  <SendIcon className="h-4 w-4" />
                         </Button>
                       </div>
+              <p className="mt-2 text-[11px] text-muted-foreground/70">
+                Press <span className="rounded-md border border-border/60 px-1.5 py-0.5 text-xs text-foreground">Enter</span> to send ·{' '}
+                <span className="rounded-md border border-border/60 px-1.5 py-0.5 text-xs text-foreground">Shift + Enter</span> for a new line
+              </p>
                     </div>
-                  </CardContent>
-                </>
-              )}
             </Card>
           </motion.div>
         )}
       </AnimatePresence>
-    </>
   );
 };
 

@@ -17,12 +17,23 @@ export interface ScheduledPost {
   content: string;
   platform: string;
   date: string;
+  imageUrl?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface NewScheduledPostInput {
   content: string;
   platform: string;
   date: string;
+  imageUrl?: string;
+}
+
+export interface UpdateScheduledPostInput {
+  content?: string;
+  platform?: string;
+  date?: string;
+  imageUrl?: string;
 }
 
 export const useScheduledPosts = (userId?: string) => {
@@ -72,9 +83,23 @@ export const useScheduledPosts = (userId?: string) => {
         content: input.content,
         platform: input.platform,
         date: input.date,
+        imageUrl: input.imageUrl || null,
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       });
       await updateDoc(docRef, { id: docRef.id });
+    },
+    [userId],
+  );
+
+  const updatePost = useCallback(
+    async (postId: string, input: UpdateScheduledPostInput) => {
+      if (!userId) throw new Error('You must be signed in to update posts.');
+      const postDoc = doc(db, 'users', userId, 'scheduledPosts', postId);
+      await updateDoc(postDoc, {
+        ...input,
+        updatedAt: serverTimestamp(),
+      });
     },
     [userId],
   );
@@ -93,6 +118,7 @@ export const useScheduledPosts = (userId?: string) => {
     loading,
     error,
     schedulePost,
+    updatePost,
     cancelPost,
   };
 };

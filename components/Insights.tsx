@@ -1,16 +1,19 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import Card from './shared/Card';
-import { SparklesIcon, CalendarIcon, WebsiteIcon, CheckCircleIcon } from './shared/Icons';
+import { SparklesIcon, CalendarIcon, WebsiteIcon, CheckCircleIcon, EditIcon, TrashIcon, ImageIcon } from './shared/Icons';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocialStats } from '../hooks/useSocialStats';
-import { useScheduledPosts } from '../hooks/useScheduledPosts';
-import { generateSocialPost, generateWebsiteAudit } from '../services/geminiService';
+import { useScheduledPosts, ScheduledPost } from '../hooks/useScheduledPosts';
+import { generateSocialPost, generateWebsiteAudit, WebsiteAuditResult } from '../services/geminiService';
+import { storage } from '../services/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 type InsightTab = 'social' | 'website';
 type MessageTone = 'Professional' | 'Witty' | 'Excited' | 'Informative';
@@ -53,13 +56,22 @@ const Insights: React.FC = () => {
 
   // Social analytics state
   const { stats, loading: statsLoading } = useSocialStats(user?.uid);
-  const { posts: scheduledPosts, loading: postsLoading, schedulePost } = useScheduledPosts(user?.uid);
+  const { posts: scheduledPosts, loading: postsLoading, schedulePost, updatePost, cancelPost } = useScheduledPosts(user?.uid);
   const [topic, setTopic] = useState('');
   const [platform, setPlatform] = useState('Twitter / X');
   const [tone, setTone] = useState<MessageTone>('Professional');
   const [generatedPost, setGeneratedPost] = useState('');
   const [isGeneratingPost, setIsGeneratingPost] = useState(false);
   const socialStats = useMemo(() => stats, [stats]);
+
+  // Edit post state
+  const [editingPost, setEditingPost] = useState<ScheduledPost | null>(null);
+  const [editContent, setEditContent] = useState('');
+  const [editPlatform, setEditPlatform] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editImageUrl, setEditImageUrl] = useState<string | undefined>();
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   const handleGeneratePost = useCallback(async () => {
     if (!topic) return;
@@ -99,7 +111,7 @@ const Insights: React.FC = () => {
       .then(() => {
         toast({
           title: 'Post Scheduled',
-          description: 'We’ll remind you when it’s time to publish.',
+          description: "We'll remind you when it's time to publish.",
         });
       })
       .catch((error: any) => {
@@ -112,11 +124,97 @@ const Insights: React.FC = () => {
       });
   }, [generatedPost, platform, schedulePost, toast, user]);
 
+  const handleEditPost = useCallback((post: ScheduledPost) => {
+    setEditingPost(post);
+    setEditContent(post.content);
+    setEditPlatform(post.platform);
+    // Format date for datetime-local input
+    const date = new Date(post.date);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    setEditDate(`${year}-${month}-${day}T${hours}:${minutes}`);
+    setEditImageUrl(post.imageUrl);
+  }, []);
+
+  const handleSaveEdit = useCallback(async () => {
+    if (!editingPost || !user) return;
+    setIsSavingEdit(true);
+    try {
+      await updatePost(editingPost.id, {
+        content: editContent,
+        platform: editPlatform,
+        date: new Date(editDate).toISOString(),
+        imageUrl: editImageUrl,
+      });
+      setEditingPost(null);
+      toast({
+        title: 'Post updated',
+        description: 'Your scheduled post has been updated successfully.',
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Update failed',
+        description: error?.message ?? 'Failed to update post. Please try again.',
+      });
+    } finally {
+      setIsSavingEdit(false);
+    }
+  }, [editingPost, editContent, editPlatform, editDate, editImageUrl, updatePost, user, toast]);
+
+  const handleDeletePost = useCallback(async (postId: string) => {
+    if (!confirm('Are you sure you want to delete this scheduled post?')) return;
+    try {
+      await cancelPost(postId);
+      toast({
+        title: 'Post deleted',
+        description: 'The scheduled post has been removed.',
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Delete failed',
+        description: error?.message ?? 'Failed to delete post. Please try again.',
+      });
+    }
+  }, [cancelPost, toast]);
+
+  const handleImageUpload = useCallback(async (file: File, isEdit: boolean = false) => {
+    if (!user) return;
+    setIsUploadingImage(true);
+    try {
+      const imageRef = ref(storage, `scheduled-posts/${user.uid}/${Date.now()}_${file.name}`);
+      await uploadBytes(imageRef, file);
+      const url = await getDownloadURL(imageRef);
+      if (isEdit) {
+        setEditImageUrl(url);
+      } else {
+        // For new posts, we'd handle this in the schedule flow
+        return url;
+      }
+      toast({
+        title: 'Image uploaded',
+        description: 'Your image has been uploaded successfully.',
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Upload failed',
+        description: error?.message ?? 'Failed to upload image. Please try again.',
+      });
+    } finally {
+      setIsUploadingImage(false);
+    }
+  }, [user, toast]);
+
   // Website audit state
   const [url, setUrl] = useState('');
   const [auditedUrl, setAuditedUrl] = useState('');
   const [isAuditing, setIsAuditing] = useState(false);
-  const [auditResult, setAuditResult] = useState<{ recommendations: string[]; scores: { overall: number; seo: number; performance: number } } | null>(null);
+  const [auditResult, setAuditResult] = useState<WebsiteAuditResult | null>(null);
 
   const handleAuditWebsite = useCallback(async () => {
     if (!url.trim()) return;
@@ -125,24 +223,17 @@ const Insights: React.FC = () => {
     setAuditedUrl(url.trim());
 
     try {
-      const rawRecommendations = await generateWebsiteAudit(url.trim());
-      const recommendations = rawRecommendations
-        .split(/\r?\n\r?\n/)
-        .map((group) => group.trim())
-        .filter(Boolean);
-
-      const scores = {
-        overall: Math.floor(Math.random() * 20) + 75,
-        seo: Math.floor(Math.random() * 30) + 60,
-        performance: Math.floor(Math.random() * 15) + 85,
-      };
-
-      setAuditResult({ recommendations, scores });
+      const result = await generateWebsiteAudit(url.trim());
+      setAuditResult(result);
+      toast({
+        title: 'Audit complete',
+        description: `Analysis complete for ${url.trim()}. Found ${result.recommendations.length} recommendations.`,
+      });
     } catch (error: any) {
       toast({
         variant: 'destructive',
         title: 'Audit failed',
-        description: error?.message ?? 'We couldn’t complete the audit. Please try again.',
+        description: error?.message ?? "We couldn't complete the audit. Please try again.",
       });
     } finally {
       setIsAuditing(false);
@@ -378,10 +469,37 @@ const Insights: React.FC = () => {
                 ) : scheduledPosts.length > 0 ? (
                   scheduledPosts.map((post) => (
                     <div key={post.id} className="p-3 rounded-xl border border-border/50 bg-card/50 hover:border-primary/40 transition">
+                      {post.imageUrl && (
+                        <img 
+                          src={post.imageUrl} 
+                          alt="Post preview" 
+                          className="w-full h-32 object-cover rounded-lg mb-2"
+                        />
+                      )}
                       <p className="text-sm font-medium text-foreground line-clamp-3">{post.content}</p>
-                      <div className="flex justify-between items-center text-xs text-muted-foreground mt-2">
-                        <span>{post.platform}</span>
-                        <span>{new Date(post.date).toLocaleString()}</span>
+                      <div className="flex justify-between items-center mt-2">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Badge variant="outline" className="text-xs">{post.platform}</Badge>
+                          <span>{new Date(post.date).toLocaleString()}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0"
+                            onClick={() => handleEditPost(post)}
+                          >
+                            <EditIcon className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                            onClick={() => handleDeletePost(post.id)}
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   ))
@@ -552,7 +670,7 @@ const Insights: React.FC = () => {
                     </Button>
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-6">
                   <div>
                     <h4 className="text-sm font-semibold text-muted-foreground uppercase mb-2">Overall Health</h4>
                     <ProgressRing score={auditResult.scores.overall} />
@@ -565,8 +683,58 @@ const Insights: React.FC = () => {
                     <h4 className="text-sm font-semibold text-muted-foreground uppercase mb-2">Performance</h4>
                     <ProgressRing score={auditResult.scores.performance} />
                   </div>
+                  <div>
+                    <h4 className="text-sm font-semibold text-muted-foreground uppercase mb-2">Accessibility</h4>
+                    <ProgressRing score={auditResult.scores.accessibility} />
+                  </div>
+                </div>
+                
+                {/* Findings Section */}
+                <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="p-3 rounded-lg border border-border/50 bg-card/50">
+                    <p className="text-xs text-muted-foreground uppercase">HTTPS</p>
+                    <p className={`text-sm font-semibold mt-1 ${auditResult.findings.isHTTPS ? 'text-emerald-500' : 'text-destructive'}`}>
+                      {auditResult.findings.isHTTPS ? 'Enabled' : 'Not Enabled'}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg border border-border/50 bg-card/50">
+                    <p className="text-xs text-muted-foreground uppercase">Meta Description</p>
+                    <p className={`text-sm font-semibold mt-1 ${auditResult.findings.hasMetaDescription ? 'text-emerald-500' : 'text-amber-500'}`}>
+                      {auditResult.findings.hasMetaDescription ? 'Present' : 'Missing'}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg border border-border/50 bg-card/50">
+                    <p className="text-xs text-muted-foreground uppercase">Page Speed</p>
+                    <p className="text-sm font-semibold mt-1 text-foreground">
+                      {auditResult.findings.pageSpeed}
+                    </p>
+                  </div>
+                  <div className="p-3 rounded-lg border border-border/50 bg-card/50">
+                    <p className="text-xs text-muted-foreground uppercase">Mobile Friendly</p>
+                    <p className={`text-sm font-semibold mt-1 ${auditResult.findings.mobileFriendly ? 'text-emerald-500' : 'text-destructive'}`}>
+                      {auditResult.findings.mobileFriendly ? 'Yes' : 'No'}
+                    </p>
+                  </div>
                 </div>
               </Card>
+
+              {/* Key Insights */}
+              {auditResult.insights && auditResult.insights.length > 0 && (
+                <Card>
+                  <div className="flex items-center gap-2 mb-4">
+                    <SparklesIcon className="w-5 h-5 text-primary" />
+                    <h3 className="text-lg font-semibold text-foreground">Key Insights</h3>
+                  </div>
+                  <ul className="space-y-2">
+                    {auditResult.insights.map((insight, index) => (
+                      <li key={index} className="flex items-start gap-2 text-sm text-foreground/90">
+                        <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-primary/80 shrink-0" />
+                        <span>{insight}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              )}
 
               <Card>
                 <div className="flex items-center gap-2 mb-4">
@@ -575,28 +743,45 @@ const Insights: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {auditResult.recommendations.map((rec, index) => {
-                    const [title, ...body] = rec.split(':');
-                    const description = body.join(':').trim();
-                    const colorPalette = [
-                      'from-blue-500/10 to-cyan-500/10 border-blue-500/20 text-blue-500',
-                      'from-emerald-500/10 to-teal-500/10 border-emerald-500/20 text-emerald-500',
-                      'from-amber-500/10 to-orange-500/10 border-amber-500/20 text-amber-500',
-                      'from-purple-500/10 to-pink-500/10 border-purple-500/20 text-purple-500',
-                    ];
-                    const color = colorPalette[index % colorPalette.length];
+                    const categoryColors: Record<string, string> = {
+                      SEO: 'from-blue-500/10 to-cyan-500/10 border-blue-500/20',
+                      Performance: 'from-emerald-500/10 to-teal-500/10 border-emerald-500/20',
+                      Content: 'from-purple-500/10 to-pink-500/10 border-purple-500/20',
+                      Accessibility: 'from-amber-500/10 to-orange-500/10 border-amber-500/20',
+                      Security: 'from-red-500/10 to-rose-500/10 border-red-500/20',
+                    };
+                    const priorityColors: Record<string, string> = {
+                      High: 'bg-red-500/20 text-red-600 border-red-500/30',
+                      Medium: 'bg-amber-500/20 text-amber-600 border-amber-500/30',
+                      Low: 'bg-blue-500/20 text-blue-600 border-blue-500/30',
+                    };
+                    const color = categoryColors[rec.category] || categoryColors.SEO;
                     return (
                       <div
                         key={index}
                         className={`bg-gradient-to-r ${color} p-5 rounded-xl border-2 shadow-sm hover:shadow-lg transition`}
                       >
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="p-1.5 rounded-lg bg-background/60">
-                            <CheckCircleIcon className="w-5 h-5" />
+                        <div className="flex items-start justify-between gap-2 mb-3">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1.5 rounded-lg bg-background/60">
+                              <CheckCircleIcon className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h4 className="font-semibold text-foreground">{rec.title}</h4>
+                              <Badge variant="outline" className="mt-1 text-xs">
+                                {rec.category}
+                              </Badge>
+                            </div>
                           </div>
-                          <h4 className="font-semibold text-foreground">{title || 'Recommendation'}</h4>
+                          <Badge className={priorityColors[rec.priority]}>
+                            {rec.priority}
+                          </Badge>
                         </div>
-                        <p className="text-sm text-foreground/90 leading-relaxed">
-                          {description || rec}
+                        <p className="text-sm text-foreground/90 leading-relaxed mb-2">
+                          {rec.description}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          <strong>Impact:</strong> {rec.impact}
                         </p>
                       </div>
                     );
@@ -668,6 +853,93 @@ const Insights: React.FC = () => {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Edit Post Dialog */}
+      {editingPost && (
+        <Dialog open={!!editingPost} onOpenChange={(open) => !open && setEditingPost(null)}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Edit Scheduled Post</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Content</label>
+                <Textarea
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  className="min-h-[120px]"
+                  placeholder="Enter post content..."
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">Platform</label>
+                  <select
+                    value={editPlatform}
+                    onChange={(e) => setEditPlatform(e.target.value)}
+                    className="w-full bg-input text-foreground rounded-[var(--radius)] py-2 px-3 focus:outline-none focus:ring-2 focus:ring-ring border border-border"
+                  >
+                    <option>Twitter / X</option>
+                    <option>LinkedIn</option>
+                    <option>Instagram</option>
+                    <option>Facebook</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1">Schedule Date & Time</label>
+                  <Input
+                    type="datetime-local"
+                    value={editDate}
+                    onChange={(e) => setEditDate(e.target.value)}
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-1">Image</label>
+                {editImageUrl && (
+                  <div className="mb-2">
+                    <img src={editImageUrl} alt="Post image" className="w-full h-48 object-cover rounded-lg" />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="mt-2"
+                      onClick={() => setEditImageUrl(undefined)}
+                    >
+                      Remove Image
+                    </Button>
+                  </div>
+                )}
+                <label className="flex items-center justify-center w-full border-2 border-dashed border-border rounded-lg p-4 cursor-pointer hover:border-primary transition">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleImageUpload(file, true);
+                    }}
+                    disabled={isUploadingImage}
+                  />
+                  <div className="text-center">
+                    <ImageIcon className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                    <span className="text-sm text-foreground">
+                      {isUploadingImage ? 'Uploading...' : editImageUrl ? 'Change Image' : 'Upload Image'}
+                    </span>
+                  </div>
+                </label>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingPost(null)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveEdit} disabled={isSavingEdit || !editContent.trim()}>
+                {isSavingEdit ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };
