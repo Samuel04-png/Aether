@@ -16,7 +16,7 @@ import {
 } from './shared/Icons';
 import { SearchInput } from '@/components/ui/search-input';
 import { Button } from '@/components/ui/button';
-import { generatePersonalizedLeadMessage } from '../services/geminiService';
+import { generatePersonalizedLeadMessage } from '../services/deepseekService';
 import { Lead } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { NewLeadInput, useLeads } from '../hooks/useLeads';

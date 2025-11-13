@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Card from './shared/Card';
 import { SparklesIcon, WebsiteIcon, CheckCircleIcon } from './shared/Icons';
-import { generateWebsiteAudit } from '../services/geminiService';
+import { generateWebsiteAudit } from '../services/deepseekService';
 
 const ProgressRing: React.FC<{ score: number }> = ({ score }) => {
     const radius = 50;

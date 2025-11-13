@@ -11,7 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocialStats } from '../hooks/useSocialStats';
 import { useScheduledPosts, ScheduledPost } from '../hooks/useScheduledPosts';
-import { generateSocialPost, generateWebsiteAudit, WebsiteAuditResult } from '../services/geminiService';
+import { generateSocialPost, generateWebsiteAudit, WebsiteAuditResult } from '../services/deepseekService';
 import { storage } from '../services/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 

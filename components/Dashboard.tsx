@@ -22,7 +22,7 @@ import { useTasks } from '../hooks/useTasks';
 import { useProjects } from '../hooks/useProjects';
 import { useLeads } from '../hooks/useLeads';
 import { useUserProfile } from '../hooks/useUserProfile';
-import { generateBusinessInsights } from '../services/geminiService';
+import { generateBusinessInsights } from '../services/deepseekService';
 import { cn } from '@/lib/utils';
 import { PageContainer, PageHeader, PageSection } from './layout/Page';
 

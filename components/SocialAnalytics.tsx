@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import Card from './shared/Card';
 import { SparklesIcon, CalendarIcon } from './shared/Icons';
-import { generateSocialPost } from '../services/geminiService';
+import { generateSocialPost } from '../services/deepseekService';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocialStats } from '../hooks/useSocialStats';
 import { useScheduledPosts } from '../hooks/useScheduledPosts';

@@ -10,9 +10,9 @@ import { useProjects } from '@/hooks/useProjects';
 import { useAssignedTasks } from '@/hooks/useAssignedTasks';
 import { useToast } from '@/hooks/use-toast';
 import { SparklesIcon, AttachmentIcon, SendIcon } from '../shared/Icons';
-import { GoogleGenAI } from '@google/genai';
 import MessageBubble from './MessageBubble';
 import { useMood } from '../../hooks/useMood';
+import { generateCopilotResponse } from '../../services/deepseekService';
 
 interface Message {
   id: string;
@@ -165,41 +165,23 @@ Ask me about revenue trends, project status, or anything else in your workspace.
     setIsLoading(true);
 
     try {
-      const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
-      if (!apiKey) {
-        throw new Error('Gemini API key not configured');
-      }
-
-      const ai = new GoogleGenAI({ apiKey });
       const context = buildContext();
-        const conversationHistory = nextMessages
-          .slice(-6)
-          .map((msg) => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
-          .join('\n\n');
+      const conversationHistory = nextMessages
+        .slice(-6)
+        .map((msg) => ({ role: msg.role, content: msg.content }));
 
-        const prompt = `You are Byte&Berry Copilot, an AI assistant inside the Aether workspace.
-
-Workspace context:
-${context}
-
-Conversation so far:
-${conversationHistory}
-
-User: ${trimmed}
-
-Answer in a friendly, concise tone. Use bullet points when helpful and surface specific data-driven insights.`;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-      });
+      const responseText = await generateCopilotResponse(
+        trimmed,
+        context,
+        conversationHistory
+      );
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-          content:
-            response.text ||
-            "I'm sorry—I'm having trouble reading that data right now. Could you try asking in a different way?",
+        content:
+          responseText ||
+          "I'm sorry—I'm having trouble reading that data right now. Could you try asking in a different way?",
         timestamp: new Date(),
       };
 
@@ -219,19 +201,13 @@ Answer in a friendly, concise tone. Use bullet points when helpful and surface s
         
         // Check for specific error types
         if (error?.message?.includes('API key')) {
-          errorMessage = '🔑 AI service is not configured. Please set VITE_GEMINI_API_KEY in your .env file.';
+          errorMessage = '🔑 AI service is not configured. Please set VITE_DEEPSEEK_API_KEY in your .env file.';
           toastTitle = 'API Key Missing';
-        } else if (error?.code === 429 || error?.status === 'RESOURCE_EXHAUSTED' || error?.message?.includes('quota')) {
-          const retryDelay = error?.details?.find((d: any) => d['@type']?.includes('RetryInfo'))?.retryDelay || '8s';
-          errorMessage = `⏱️ Daily quota limit reached (250 requests). The free tier resets daily.
+        } else if (error?.message?.includes('Rate limit')) {
+          errorMessage = `⏱️ Rate limit exceeded. Please try again in a moment.
 
-Options:
-1. Wait ${retryDelay} and try again
-2. Try again tomorrow (quota resets at midnight PST)
-3. Get a paid API key at https://ai.google.dev/pricing
-
-You can still use the app - only the AI assistant is temporarily unavailable.`;
-          toastTitle = 'Quota Limit Reached';
+The DeepSeek API has rate limits to ensure fair usage. Please wait a moment and try again.`;
+          toastTitle = 'Rate Limit Reached';
         } else if (error?.message) {
           errorMessage = `🤖 ${error.message}`;
         }
