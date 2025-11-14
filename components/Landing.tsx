@@ -123,19 +123,19 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
   ];
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-white via-slate-50 to-slate-100 text-slate-900 dark:bg-slate-950 dark:text-white">
+    <div className="relative min-h-screen overflow-hidden bg-gradient-to-b from-white via-slate-50 to-slate-100 text-slate-900 dark:bg-gradient-to-b dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 dark:text-white">
       <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute -top-32 -left-32 h-72 w-72 rounded-full bg-indigo-100/70 blur-3xl dark:bg-indigo-500/20" />
-        <div className="absolute top-1/3 right-0 h-64 w-64 rounded-full bg-sky-100/70 blur-3xl dark:bg-sky-500/20" />
-        <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-pink-100/60 blur-3xl dark:bg-pink-500/20" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(79,70,229,0.08),transparent_60%)] dark:bg-[radial-gradient(circle_at_top,_rgba(79,70,229,0.15),transparent_60%)]" />
+        <div className="absolute -top-32 -left-32 h-72 w-72 rounded-full bg-indigo-100/70 blur-3xl dark:bg-indigo-500/30" />
+        <div className="absolute top-1/3 right-0 h-64 w-64 rounded-full bg-sky-100/70 blur-3xl dark:bg-sky-500/25" />
+        <div className="absolute bottom-0 left-1/3 h-72 w-72 rounded-full bg-pink-100/60 blur-3xl dark:bg-pink-500/25" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(79,70,229,0.08),transparent_60%)] dark:bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.2),transparent_70%)]" />
       </div>
 
       <motion.nav
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={transitions.quick}
-        className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/90 backdrop-blur-xl shadow-sm dark:border-white/10 dark:bg-slate-900/80"
+        className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/95 backdrop-blur-xl shadow-sm dark:border-white/10 dark:bg-slate-950/95"
       >
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -213,10 +213,10 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
                   Sign In
                 </Button>
               </div>
-              <div className="grid gap-6 text-sm text-slate-600 dark:text-white/70 sm:grid-cols-3">
+              <div className="grid gap-6 text-sm text-slate-600 dark:text-slate-400 sm:grid-cols-3">
                 {[{ label: 'Minutes to onboard', value: '10' }, { label: 'Automation templates', value: '50+' }, { label: 'Teams using Aether', value: '200+' }].map(
                   (stat) => (
-                    <div key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900">
+                    <div key={stat.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-slate-900/80 dark:backdrop-blur-sm">
                       <p className="text-2xl font-bold text-slate-900 dark:text-white">{stat.value}</p>
                       <p>{stat.label}</p>
                     </div>
@@ -225,7 +225,7 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
               </div>
             </motion.div>
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={transitions.quick}>
-              <Card className="border border-slate-200 bg-white p-4 shadow-2xl dark:border-white/10 dark:bg-slate-900">
+              <Card className="border border-slate-200 bg-white p-4 shadow-2xl dark:border-white/10 dark:bg-slate-900/80 dark:backdrop-blur-sm">
                 <button type="button" onClick={() => openPreview(0)} className="relative block w-full text-left" aria-label="Open screenshot preview">
                   <img
                     src={screenshots[0].src}
@@ -235,17 +235,17 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
                     height="1080"
                     className="w-full rounded-2xl border border-slate-100 shadow-xl transition-transform duration-300 hover:scale-[1.01] dark:border-white/10"
                   />
-                  <span className="pointer-events-none absolute right-4 top-4 hidden items-center gap-1 rounded-full bg-white/80 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 backdrop-blur sm:flex">
+                  <span className="pointer-events-none absolute right-4 top-4 hidden items-center gap-1 rounded-full bg-white/80 px-2.5 py-1 text-xs font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 backdrop-blur sm:flex dark:bg-slate-900/80 dark:text-slate-200 dark:ring-white/10">
                     <Maximize2 className="h-3.5 w-3.5" />
                     Preview
                   </span>
                 </button>
               </Card>
-              <div className="mt-5 flex flex-wrap items-center justify-center gap-3 text-xs text-slate-500 dark:text-white/60">
+              <div className="mt-5 flex flex-wrap items-center justify-center gap-3 text-xs text-slate-500 dark:text-slate-400">
                 <span>Built with</span>
-                <span className="rounded-full border border-slate-200 bg-white px-3 py-1 dark:border-white/10 dark:bg-slate-900">Firebase</span>
-                <span className="rounded-full border border-slate-200 bg-white px-3 py-1 dark:border-white/10 dark:bg-slate-900">React 19</span>
-                <span className="rounded-full border border-slate-200 bg-white px-3 py-1 dark:border-white/10 dark:bg-slate-900">DeepSeek AI</span>
+                <span className="rounded-full border border-slate-200 bg-white px-3 py-1 dark:border-white/10 dark:bg-slate-900/80">Firebase</span>
+                <span className="rounded-full border border-slate-200 bg-white px-3 py-1 dark:border-white/10 dark:bg-slate-900/80">React 19</span>
+                <span className="rounded-full border border-slate-200 bg-white px-3 py-1 dark:border-white/10 dark:bg-slate-900/80">DeepSeek AI</span>
               </div>
             </motion.div>
           </div>
@@ -261,7 +261,7 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
           >
             <div className="text-center space-y-5">
               <h2 className="text-4xl font-black text-slate-900 dark:text-white">One workspace for every team</h2>
-              <p className="mx-auto max-w-3xl text-lg text-slate-600 dark:text-white/70">
+              <p className="mx-auto max-w-3xl text-lg text-slate-600 dark:text-slate-300">
                 Replace disconnected tools with an operating system that brings automation, analytics, and execution together.
               </p>
             </div>
@@ -270,15 +270,15 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
                 const Icon = feature.icon;
                 return (
                   <motion.div key={feature.title} variants={staggerItem} whileHover={{ y: -6 }}>
-                    <Card className="h-full border border-slate-200 bg-white text-left shadow-lg transition-all dark:border-white/10 dark:bg-slate-900">
+                    <Card className="h-full border border-slate-200 bg-white text-left shadow-lg transition-all dark:border-white/10 dark:bg-slate-900/80 dark:backdrop-blur-sm">
                       <CardHeader className="pb-3">
-                        <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/15 to-purple-500/20 text-indigo-600 dark:text-white">
+                        <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/15 to-purple-500/20 text-indigo-600 dark:bg-gradient-to-br dark:from-indigo-500/30 dark:to-purple-500/30 dark:text-indigo-300">
                           <Icon className="h-6 w-6" />
                         </div>
                         <CardTitle className="text-slate-900 dark:text-white">{feature.title}</CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <CardDescription className="text-base text-slate-600 dark:text-white/70">{feature.description}</CardDescription>
+                        <CardDescription className="text-base text-slate-600 dark:text-slate-300">{feature.description}</CardDescription>
                       </CardContent>
                     </Card>
                   </motion.div>
@@ -292,12 +292,12 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
               viewport={{ once: true, amount: 0.3 }}
               transition={transitions.quick}
             >
-              <Card className="overflow-hidden border border-slate-200 bg-gradient-to-r from-white to-slate-50 shadow-2xl dark:border-white/10 dark:bg-slate-900/80">
+              <Card className="overflow-hidden border border-slate-200 bg-gradient-to-r from-white to-slate-50 shadow-2xl dark:border-white/10 dark:bg-gradient-to-r dark:from-slate-900 dark:to-slate-800/90">
                 <div className="grid gap-0 lg:grid-cols-3">
                   <div className="space-y-3 p-8">
-                    <Badge className="w-fit border border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-500/30 dark:bg-pink-500/10 dark:text-pink-100">See it in action</Badge>
+                    <Badge className="w-fit border border-pink-200 bg-pink-50 text-pink-700 dark:border-pink-500/40 dark:bg-pink-500/15 dark:text-pink-200">See it in action</Badge>
                     <h3 className="text-2xl font-semibold text-slate-900 dark:text-white">Insights that turn into action</h3>
-                    <p className="text-slate-600 dark:text-white/70">
+                    <p className="text-slate-600 dark:text-slate-300">
                       Aether surfaces the most important signals and recommends who should act, why it matters, and the impact on your KPIs.
                     </p>
                   </div>
@@ -323,7 +323,7 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
           <div className="mx-auto max-w-6xl space-y-8">
             <div className="text-center space-y-3">
               <h2 className="text-3xl font-black text-slate-900 dark:text-white">How it works</h2>
-              <p className="text-slate-600 dark:text-white/70">Connect your data, choose automations, and let Aether handle the busywork.</p>
+              <p className="text-slate-600 dark:text-slate-300">Connect your data, choose automations, and let Aether handle the busywork.</p>
             </div>
             <div className="grid gap-6 md:grid-cols-3">
               {[
@@ -331,13 +331,13 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
                 { step: '2', title: 'Automate', desc: 'Use prebuilt flows or let the copilot create ones for you.' },
                 { step: '3', title: 'Grow', desc: 'Get proactive insights, outreach, and playbooks that ship outcomes.' },
               ].map((item) => (
-                <Card key={item.step} className="border border-slate-200 bg-white text-left shadow-lg dark:border-white/10 dark:bg-slate-900">
+                <Card key={item.step} className="border border-slate-200 bg-white text-left shadow-lg dark:border-white/10 dark:bg-slate-900/80 dark:backdrop-blur-sm">
                   <CardHeader className="pb-2">
-                    <Badge className="w-fit border border-slate-200 bg-slate-100 text-slate-700 dark:border-white/20 dark:bg-white/10 dark:text-white">{`Step ${item.step}`}</Badge>
+                    <Badge className="w-fit border border-slate-200 bg-slate-100 text-slate-700 dark:border-indigo-500/30 dark:bg-indigo-500/15 dark:text-indigo-200">{`Step ${item.step}`}</Badge>
                     <CardTitle className="mt-3 text-slate-900 dark:text-white">{item.title}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <CardDescription className="text-base text-slate-600 dark:text-white/70">{item.desc}</CardDescription>
+                    <CardDescription className="text-base text-slate-600 dark:text-slate-300">{item.desc}</CardDescription>
                   </CardContent>
                 </Card>
               ))}
@@ -349,26 +349,26 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
           <div className="mx-auto max-w-6xl space-y-10">
             <div className="text-center space-y-4">
               <h2 className="text-4xl font-black text-slate-900 dark:text-white">Simple, transparent pricing</h2>
-              <p className="text-slate-600 dark:text-white/70">Select the plan that matches your stage. Paid tiers launch soon.</p>
+              <p className="text-slate-600 dark:text-slate-300">Select the plan that matches your stage. Paid tiers launch soon.</p>
             </div>
             <div className="grid gap-6 md:grid-cols-3">
               {pricingPlans.map((plan) => (
                 <Card
                   key={plan.name}
-                  className={`flex h-full flex-col border border-slate-200 bg-white text-left shadow-xl dark:border-white/10 dark:bg-slate-900 ${
-                    plan.highlighted ? 'ring-2 ring-indigo-400 dark:ring-indigo-500' : ''
+                  className={`flex h-full flex-col border border-slate-200 bg-white text-left shadow-xl dark:border-white/10 dark:bg-slate-900/80 dark:backdrop-blur-sm ${
+                    plan.highlighted ? 'ring-2 ring-indigo-400 dark:ring-indigo-400' : ''
                   }`}
                 >
                   <CardHeader>
-                    {plan.highlighted && <Badge className="w-fit border border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-500/10 dark:text-indigo-100">Most popular</Badge>}
+                    {plan.highlighted && <Badge className="w-fit border border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-500/40 dark:bg-indigo-500/20 dark:text-indigo-200">Most popular</Badge>}
                     <CardTitle className="text-2xl font-semibold text-slate-900 dark:text-white">{plan.name}</CardTitle>
                     <p className="text-4xl font-black text-slate-900 dark:text-white">{plan.price}</p>
                   </CardHeader>
                   <CardContent className="flex flex-1 flex-col">
-                    <ul className="space-y-3 text-slate-600 dark:text-white/70">
+                    <ul className="space-y-3 text-slate-600 dark:text-slate-300">
                       {plan.features.map((feature) => (
                         <li key={feature} className="flex items-center gap-2">
-                          <Check className="h-4 w-4 text-emerald-500" />
+                          <Check className="h-4 w-4 text-emerald-500 dark:text-emerald-400" />
                           {feature}
                         </li>
                       ))}
@@ -394,7 +394,7 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
           <div className="mx-auto max-w-5xl space-y-8">
             <div className="text-center space-y-2">
               <h2 className="text-3xl font-black text-slate-900 dark:text-white">Frequently asked questions</h2>
-              <p className="text-slate-600 dark:text-white/70">Quick answers before you jump in.</p>
+              <p className="text-slate-600 dark:text-slate-300">Quick answers before you jump in.</p>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               {[
@@ -405,12 +405,12 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
                 { q: 'Is my data secure?', a: 'We rely on battle-tested Firebase security, role-based access, and audit logs.' },
                 { q: 'Does it work on mobile?', a: 'Yes. The UI is responsive across phones, tablets, and desktops.' },
               ].map((item) => (
-                <Card key={item.q} className="border border-slate-200 bg-white text-left shadow-md dark:border-white/10 dark:bg-slate-900">
+                <Card key={item.q} className="border border-slate-200 bg-white text-left shadow-md dark:border-white/10 dark:bg-slate-900/80 dark:backdrop-blur-sm">
                   <CardHeader className="pb-2">
                     <CardTitle className="text-xl text-slate-900 dark:text-white">{item.q}</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <CardDescription className="text-base text-slate-600 dark:text-white/70">{item.a}</CardDescription>
+                    <CardDescription className="text-base text-slate-600 dark:text-slate-300">{item.a}</CardDescription>
                   </CardContent>
                 </Card>
               ))}
@@ -420,15 +420,15 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
 
         <section id="contact" className="px-4 py-20 sm:px-6 lg:px-8">
           <div className="mx-auto grid max-w-6xl gap-8 lg:grid-cols-2">
-            <Card className="border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900">
+            <Card className="border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900/80 dark:backdrop-blur-sm">
               <CardHeader>
                 <div className="flex items-center gap-3">
-                  <div className="rounded-2xl bg-indigo-100 p-3 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-100">
+                  <div className="rounded-2xl bg-indigo-100 p-3 text-indigo-700 dark:bg-indigo-500/25 dark:text-indigo-300">
                     <MessageSquare className="h-6 w-6" />
                   </div>
                   <div>
                     <CardTitle className="text-2xl text-slate-900 dark:text-white">Share feedback</CardTitle>
-                    <CardDescription className="text-base text-slate-600 dark:text-white/70">Help us prioritize the roadmap. Tell us what would make Aether perfect for you.</CardDescription>
+                    <CardDescription className="text-base text-slate-600 dark:text-slate-300">Help us prioritize the roadmap. Tell us what would make Aether perfect for you.</CardDescription>
                   </div>
                 </div>
               </CardHeader>
@@ -464,15 +464,15 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
               </CardContent>
             </Card>
 
-            <Card className="border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900">
+            <Card className="border border-slate-200 bg-white shadow-xl dark:border-white/10 dark:bg-slate-900/80 dark:backdrop-blur-sm">
               <CardHeader>
                 <div className="flex items-center gap-3">
-                  <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-100">
+                  <div className="rounded-2xl bg-emerald-100 p-3 text-emerald-700 dark:bg-emerald-500/25 dark:text-emerald-300">
                     <TrendingUp className="h-6 w-6" />
                   </div>
                   <div>
                     <CardTitle className="text-2xl text-slate-900 dark:text-white">Feature requests</CardTitle>
-                    <CardDescription className="text-base text-slate-600 dark:text-white/70">Vote for what we should launch next.</CardDescription>
+                    <CardDescription className="text-base text-slate-600 dark:text-slate-300">Vote for what we should launch next.</CardDescription>
                   </div>
                 </div>
               </CardHeader>
@@ -486,10 +486,10 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
                   <Button
                     key={item.feature}
                     variant="outline"
-                    className="flex w-full items-center justify-between rounded-xl border-slate-200 px-4 py-3 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:text-white dark:hover:bg-white/10"
+                    className="flex w-full items-center justify-between rounded-xl border-slate-200 px-4 py-3 text-slate-700 hover:bg-slate-100 dark:border-white/10 dark:text-white dark:hover:bg-white/20"
                   >
                     {item.feature}
-                    <Badge className="bg-slate-100 text-slate-700 dark:bg-white/20 dark:text-white">{item.votes} votes</Badge>
+                    <Badge className="bg-slate-100 text-slate-700 dark:bg-indigo-500/20 dark:text-indigo-200">{item.votes} votes</Badge>
                   </Button>
                 ))}
               </CardContent>
@@ -498,11 +498,11 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
         </section>
 
         <section className="px-4 pb-24 sm:px-6 lg:px-8">
-          <Card className="mx-auto max-w-5xl border border-slate-200 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-2xl dark:border-white/10">
+          <Card className="mx-auto max-w-5xl border border-slate-200 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-2xl dark:border-white/5 dark:shadow-indigo-500/20">
             <CardContent className="space-y-6 px-6 py-12 text-center sm:px-12">
               <h2 className="text-3xl font-black">Ready to ship smarter workflows?</h2>
-              <p className="text-lg text-white/90">Join early adopters using Aether as their operating system for growth.</p>
-              <Button onClick={onGetStarted} size="lg" className="h-auto rounded-2xl bg-white px-8 py-4 text-lg font-semibold text-indigo-600">
+              <p className="text-lg text-white/95">Join early adopters using Aether as their operating system for growth.</p>
+              <Button onClick={onGetStarted} size="lg" className="h-auto rounded-2xl bg-white px-8 py-4 text-lg font-semibold text-indigo-600 hover:bg-white/95">
                 Try Aether Now
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
@@ -512,7 +512,7 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
       </main>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-5xl border border-slate-200 bg-white/95 p-4 text-slate-900 dark:border-white/10 dark:bg-black/90 dark:text-white">
+        <DialogContent className="max-w-5xl border border-slate-200 bg-white/95 p-4 text-slate-900 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/95 dark:text-white">
           <div className="relative">
             <img
               src={screenshots[previewIndex].src}
@@ -526,7 +526,7 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
                 variant="ghost"
                 onClick={prevPreview}
                 aria-label="Previous screenshot"
-                className="h-9 w-9 rounded-full bg-white/80 text-slate-700 hover:bg-white dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
+                className="h-9 w-9 rounded-full bg-white/80 text-slate-700 hover:bg-white dark:bg-slate-900/80 dark:text-white dark:hover:bg-slate-800"
               >
                 <ChevronLeft className="h-5 w-5" />
               </Button>
@@ -535,7 +535,7 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
                 variant="ghost"
                 onClick={nextPreview}
                 aria-label="Next screenshot"
-                className="h-9 w-9 rounded-full bg-white/80 text-slate-700 hover:bg-white dark:bg-white/10 dark:text-white dark:hover:bg-white/20"
+                className="h-9 w-9 rounded-full bg-white/80 text-slate-700 hover:bg-white dark:bg-slate-900/80 dark:text-white dark:hover:bg-slate-800"
               >
                 <ChevronRight className="h-5 w-5" />
               </Button>
@@ -544,13 +544,13 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
         </DialogContent>
       </Dialog>
 
-      <footer className="border-t border-slate-200 bg-white/90 backdrop-blur-sm dark:border-white/10 dark:bg-slate-900/90">
+      <footer className="border-t border-slate-200 bg-white/95 backdrop-blur-sm dark:border-white/10 dark:bg-slate-950/95">
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
           <div className="grid gap-8 md:grid-cols-4">
             {/* Brand Section */}
             <div className="space-y-4 md:col-span-1">
               <Logo className="h-10" />
-              <p className="text-sm text-slate-600 dark:text-white/70">
+              <p className="text-sm text-slate-600 dark:text-slate-400">
                 The all-in-one workspace for modern entrepreneurs. Automate workflows, track metrics, and grow your business.
               </p>
               <div className="flex gap-4">
@@ -584,27 +584,27 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
               <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-900 dark:text-white">Product</h3>
               <ul className="space-y-3 text-sm">
                 <li>
-                  <a href="#features" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-white/70 dark:hover:text-white">
+                  <a href="#features" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
                     Features
                   </a>
                 </li>
                 <li>
-                  <a href="#pricing" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-white/70 dark:hover:text-white">
+                  <a href="#pricing" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
                     Pricing
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-white/70 dark:hover:text-white">
+                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
                     Integrations
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-white/70 dark:hover:text-white">
+                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
                     Changelog
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-white/70 dark:hover:text-white">
+                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
                     Roadmap
                   </a>
                 </li>
@@ -616,27 +616,27 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
               <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-900 dark:text-white">Company</h3>
               <ul className="space-y-3 text-sm">
                 <li>
-                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-white/70 dark:hover:text-white">
+                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
                     About
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-white/70 dark:hover:text-white">
+                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
                     Blog
                   </a>
                 </li>
                 <li>
-                  <a href="#contact" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-white/70 dark:hover:text-white">
+                  <a href="#contact" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
                     Contact
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-white/70 dark:hover:text-white">
+                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
                     Careers
                   </a>
                 </li>
                 <li>
-                  <a href="https://byteandberry.com" target="_blank" rel="noopener noreferrer" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-white/70 dark:hover:text-white">
+                  <a href="https://byteandberry.com" target="_blank" rel="noopener noreferrer" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
                     Byte&Berry
                   </a>
                 </li>
@@ -648,27 +648,27 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
               <h3 className="text-sm font-semibold uppercase tracking-wider text-slate-900 dark:text-white">Resources</h3>
               <ul className="space-y-3 text-sm">
                 <li>
-                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-white/70 dark:hover:text-white">
+                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
                     Documentation
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-white/70 dark:hover:text-white">
+                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
                     Help Center
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-white/70 dark:hover:text-white">
+                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
                     API Reference
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-white/70 dark:hover:text-white">
+                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
                     Community
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-white/70 dark:hover:text-white">
+                  <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
                     Status
                   </a>
                 </li>
@@ -678,17 +678,17 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
 
           {/* Bottom Bar */}
           <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-slate-200 pt-8 dark:border-white/10 sm:flex-row">
-            <p className="text-sm text-slate-600 dark:text-white/70">
+            <p className="text-sm text-slate-600 dark:text-slate-400">
               © {new Date().getFullYear()} Aether. Built with care for modern entrepreneurs.
             </p>
             <div className="flex gap-6 text-sm">
-              <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-white/70 dark:hover:text-white">
+              <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
                 Privacy Policy
               </a>
-              <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-white/70 dark:hover:text-white">
+              <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
                 Terms of Service
               </a>
-              <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-white/70 dark:hover:text-white">
+              <a href="#" className="text-slate-600 transition-colors hover:text-slate-900 dark:text-slate-400 dark:hover:text-white">
                 Cookie Policy
               </a>
             </div>
