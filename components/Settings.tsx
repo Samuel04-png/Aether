@@ -408,7 +408,7 @@ const Settings: React.FC = () => {
                           ))}
                         </div>
                       )}
-                      {isSearching && (
+                      {isSearchingGlobal && (
                         <p className="absolute right-3 top-9 text-xs text-muted-foreground">Searching...</p>
                       )}
                   </div>

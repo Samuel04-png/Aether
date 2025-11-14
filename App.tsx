@@ -113,31 +113,14 @@ const App: React.FC = () => {
       return;
     }
 
-    // Check if user already has data to avoid unnecessary seeding
-    const checkAndSeed = async () => {
-      try {
-        const { getDoc, doc } = await import('firebase/firestore');
-        const { db } = await import('./services/firebase');
-        
-        // Quick check: if profile exists, user likely has data already
-        const profileDoc = await getDoc(doc(db, 'users', user.uid, 'profile', 'workspace'));
-        
-        // Only seed if this is a brand new user (no profile yet)
-        if (!profileDoc.exists()) {
-          // Seed in background - don't block UI
-          seedUserWorkspace(user.uid).catch((error) => {
-            if (error?.code !== 'unavailable' && !error?.message?.includes('offline')) {
-              console.error('Failed to seed workspace', error);
-            }
-          });
-        }
-      } catch (error) {
-        // If check fails, try seeding anyway (safe operation)
-        seedUserWorkspace(user.uid).catch(() => {});
+    // Seed workspace data for new users
+    // The seedUserWorkspace function has internal checks to prevent duplicate seeding
+    // It will only seed collections that are empty, so it's safe to call multiple times
+    seedUserWorkspace(user.uid).catch((error) => {
+      if (error?.code !== 'unavailable' && !error?.message?.includes('offline')) {
+        console.error('Failed to seed workspace', error);
       }
-    };
-
-    checkAndSeed();
+    });
   }, [user]);
 
   const handleOnboardingComplete = async (data: { businessName: string; industry: string; goals: string[] }) => {
@@ -305,9 +288,8 @@ const App: React.FC = () => {
     return <Auth initialMode={showAuthMode} onBackToLanding={() => setShowLanding(true)} />;
   }
 
-  // Show onboarding only if profile exists and onboarding is not completed
-  // If profile is null, user is new and will see onboarding after profile is created
-  const shouldShowOnboarding = profile !== null && !profile.completedOnboarding;
+  // Show onboarding for any user who hasn't completed it (including brand new users with no profile yet)
+  const shouldShowOnboarding = user && !profile?.completedOnboarding;
 
   if (shouldShowOnboarding) {
     return <Onboarding onComplete={handleOnboardingComplete} initialProfile={profile ?? undefined} />;
