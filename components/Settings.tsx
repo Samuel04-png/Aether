@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import Card from './shared/Card';
 import { PlusIcon, CloseIcon, SparklesIcon, TrashIcon, CheckCircleIcon } from './shared/Icons';
+import { MessageSquare, Shield } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useUserProfile } from '../hooks/useUserProfile';
 import { useTeamMembers } from '../hooks/useTeamMembers';
 import { useUserSearch } from '../hooks/useUserSearch';
+import { useChannels } from '../hooks/useChannels';
 import { TeamMember } from '../types';
 import { storage } from '../services/firebase';
 import { notifyTeamMemberInvite } from '../services/notificationService';
@@ -12,10 +14,335 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { updateProfile } from 'firebase/auth';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { DEMO_DATA_REMOVAL_STEPS, removeDemoData, seedUserWorkspace } from '../services/seedService';
 import { useToast } from '@/hooks/use-toast';
+import { useSlackIntegration } from '../hooks/useSlackIntegration';
+import { getSlackOAuthUrl } from '../services/slackService';
+import { useHubSpotIntegration } from '../hooks/useHubSpotIntegration';
+import { Slack } from 'lucide-react';
 
 type SettingsTab = 'profile' | 'team' | 'integrations' | 'billing';
+
+// Slack Integration Card Component
+const SlackIntegrationCard: React.FC = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const { integration, loading, isConnected, disconnect, testConnection, refreshIntegration } = useSlackIntegration(user?.uid);
+  const [testing, setTesting] = useState(false);
+  const [disconnecting, setDisconnecting] = useState(false);
+
+  const handleConnect = () => {
+    if (!user?.uid) {
+      toast({
+        variant: 'destructive',
+        title: 'Authentication Required',
+        description: 'Please sign in to connect Slack.',
+      });
+      return;
+    }
+
+    const oauthUrl = getSlackOAuthUrl(user.uid);
+    window.location.href = oauthUrl;
+  };
+
+  const handleDisconnect = async () => {
+    try {
+      setDisconnecting(true);
+      await disconnect();
+      toast({
+        title: 'Slack Disconnected',
+        description: 'Your Slack integration has been disconnected.',
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Failed to disconnect Slack',
+      });
+    } finally {
+      setDisconnecting(false);
+    }
+  };
+
+  const handleTest = async () => {
+    try {
+      setTesting(true);
+      const result = await testConnection();
+      if (result) {
+        toast({
+          title: 'Connection Test Successful',
+          description: 'Your Slack integration is working correctly.',
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Connection Test Failed',
+          description: 'Unable to verify Slack connection. Please reconnect.',
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Connection Test Failed',
+        description: 'An error occurred while testing the connection.',
+      });
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  // Listen for OAuth callback
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('slack_success')) {
+      toast({
+        title: 'Slack Connected',
+        description: 'Your Slack workspace has been connected successfully.',
+      });
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+      // Refresh integration data
+      refreshIntegration();
+    } else if (params.has('slack_error')) {
+      const error = params.get('slack_error');
+      toast({
+        variant: 'destructive',
+        title: 'Slack Connection Failed',
+        description: error || 'Failed to connect Slack workspace.',
+      });
+      // Clean up URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+  }, [toast, refreshIntegration]);
+
+  return (
+    <Card>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Slack className="h-5 w-5 text-primary" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-foreground">Slack</h3>
+              {isConnected && (
+                <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-500">
+                  Connected
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">
+              {isConnected
+                ? `Connected to ${integration?.teamName || 'Slack workspace'}`
+                : 'Receive important Aether notifications directly in your Slack channels.'}
+            </p>
+            {isConnected && integration?.defaultChannel && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Default channel: #{integration.defaultChannel}
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {isConnected ? (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleTest}
+                disabled={testing || disconnecting}
+                className="text-xs"
+              >
+                {testing ? 'Testing...' : 'Test'}
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={handleDisconnect}
+                disabled={testing || disconnecting}
+                className="text-xs"
+              >
+                {disconnecting ? 'Disconnecting...' : 'Disconnect'}
+              </Button>
+            </>
+          ) : (
+            <Button
+              size="sm"
+              onClick={handleConnect}
+              disabled={loading}
+              className="bg-primary text-primary-foreground hover:bg-primary/90 text-xs"
+            >
+              Connect
+            </Button>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+};
+
+// HubSpot Integration Card Component
+const HubSpotIntegrationCard: React.FC = () => {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const { loading, connectionStatus, testConnection, importContacts } = useHubSpotIntegration(user?.uid);
+  const [isImporting, setIsImporting] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+
+  const handleTestConnection = async () => {
+    try {
+      setIsTesting(true);
+      const isConnected = await testConnection();
+      if (isConnected) {
+        toast({
+          title: 'HubSpot Connected',
+          description: 'Successfully connected to your HubSpot account.',
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Connection Failed',
+          description: 'Unable to connect to HubSpot. Please check your API key.',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Connection Error',
+        description: error.message || 'Failed to test HubSpot connection',
+      });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const handleImport = async () => {
+    if (!user?.uid) {
+      toast({
+        variant: 'destructive',
+        title: 'Authentication Required',
+        description: 'Please sign in to import contacts.',
+      });
+      return;
+    }
+
+    try {
+      setIsImporting(true);
+      const result = await importContacts(100);
+      
+      if (result.success) {
+        toast({
+          title: 'Import Successful',
+          description: `Imported ${result.imported} of ${result.total} contacts from HubSpot.`,
+        });
+        
+        if (result.errors.length > 0) {
+          console.warn('Import warnings:', result.errors);
+        }
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Import Failed',
+          description: result.errors[0] || 'Failed to import contacts',
+        });
+      }
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Import Error',
+        description: error.message || 'Failed to import contacts from HubSpot',
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const isConfigured = !!import.meta.env.VITE_HUBSPOT_API_KEY;
+
+  return (
+    <Card>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="p-2 rounded-lg bg-orange-500/10">
+            <svg className="h-5 w-5 text-orange-500" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M18.7 11.7a1.6 1.6 0 0 0-.6-.6l-2.7-1.5V7.3c0-1-.8-1.9-1.9-1.9h-.3V3.8c0-.4-.3-.7-.7-.7s-.7.3-.7.7v1.6h-.3c-1 0-1.9.8-1.9 1.9v2.3L6.9 11c-.2.1-.4.3-.6.6-.2.2-.2.5-.2.8v4.8c0 .6.5 1.1 1.1 1.1h10.6c.6 0 1.1-.5 1.1-1.1v-4.8c0-.3-.1-.6-.2-.8zm-7.5-4.4c0-.3.3-.6.6-.6h.4c.3 0 .6.3.6.6v1.9l-1.6-.9V7.3zm7.3 9.9H5.5v-4.5l5.2-2.9c.2-.1.5-.1.6 0l5.2 2.9v4.5z"/>
+            </svg>
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-foreground">HubSpot</h3>
+              {isConfigured && connectionStatus === 'connected' && (
+                <span className="inline-flex items-center rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-500">
+                  Connected
+                </span>
+              )}
+              {!isConfigured && (
+                <span className="inline-flex items-center rounded-full bg-yellow-500/10 px-2 py-0.5 text-xs font-medium text-yellow-500">
+                  Not Configured
+                </span>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">
+              {isConfigured 
+                ? 'Import contacts and leads from your HubSpot CRM'
+                : 'API key not configured. Add VITE_HUBSPOT_API_KEY to your .env file'}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {isConfigured ? (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleTestConnection}
+                disabled={isTesting || isImporting}
+                className="text-xs"
+              >
+                {isTesting ? 'Testing...' : 'Test'}
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleImport}
+                disabled={isImporting || isTesting}
+                className="bg-orange-500 hover:bg-orange-600 text-white text-xs"
+              >
+                {isImporting ? 'Importing...' : 'Import Contacts'}
+              </Button>
+            </>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled
+              className="text-xs"
+            >
+              Configure API Key
+            </Button>
+          )}
+        </div>
+      </div>
+    </Card>
+  );
+};
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
@@ -24,6 +351,10 @@ const Settings: React.FC = () => {
   const [inviteRole, setInviteRole] = useState('Team Member');
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [isInviting, setIsInviting] = useState(false);
+  const [isManageMemberModalOpen, setIsManageMemberModalOpen] = useState(false);
+  const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
+  const [isChangeRoleDialogOpen, setIsChangeRoleDialogOpen] = useState(false);
+  const [newRole, setNewRole] = useState('');
 
   const [businessName, setBusinessName] = useState('');
   const [industry, setIndustry] = useState('');
@@ -289,43 +620,41 @@ const Settings: React.FC = () => {
     };
 
     return (
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-          <Card className="w-full max-w-md animate-slide-in-up">
-              <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-2xl font-bold text-foreground">Invite Team Member</h3>
-                  <button 
-                    onClick={() => {
-                      setIsInviteModalOpen(false);
-                      setInviteName('');
-                      setInviteEmail('');
-                      setInviteDescription('');
-                      setSearchQuery('');
-                      setSearchResults([]);
-                      setShowDropdown(false);
-                      setInviteError(null);
-                    }} 
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                    type="button"
-                  >
-                    <CloseIcon />
-                  </button>
-              </div>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="relative">
-                      <label className="block text-sm font-medium text-foreground mb-1">Full Name *</label>
-                      <input
-                        ref={nameInputRef}
-                        type="text"
-                        placeholder="e.g., Alex Johnson"
-                        value={inviteName}
-                        onChange={handleNameChange}
-                        onFocus={() => {
-                          if (inviteName) setSearchQuery(inviteName);
-                        }}
-                        className="w-full bg-input text-foreground rounded-[var(--radius)] py-2 px-3 focus:outline-none focus:ring-2 focus:ring-ring border border-border"
-                        required
-                        autoComplete="off"
-                      />
+      <Dialog open={isInviteModalOpen} onOpenChange={(open) => {
+        if (!open) {
+          setIsInviteModalOpen(false);
+          setInviteName('');
+          setInviteEmail('');
+          setInviteDescription('');
+          setSearchQuery('');
+          clearResults();
+          setShowDropdown(false);
+          setInviteError(null);
+        }
+      }}>
+        <DialogContent className="max-w-lg border-slate-200 bg-white/95 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/95">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">Invite Team Member</DialogTitle>
+            <DialogDescription className="text-slate-600 dark:text-slate-400">
+              Search for existing users or enter details to invite a new team member.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="relative">
+              <Label htmlFor="invite-name">Full Name *</Label>
+              <Input
+                id="invite-name"
+                ref={nameInputRef}
+                type="text"
+                placeholder="e.g., Alex Johnson"
+                value={inviteName}
+                onChange={handleNameChange}
+                onFocus={() => {
+                  if (inviteName) setSearchQuery(inviteName);
+                }}
+                required
+                autoComplete="off"
+              />
                       {showDropdown && (
                         <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-[var(--radius)] shadow-lg max-h-60 overflow-y-auto">
                           {isSearchingGlobal ? (
@@ -366,26 +695,27 @@ const Settings: React.FC = () => {
                           ) : null}
                         </div>
                       )}
-                  </div>
-                  <div className="relative">
-                      <label className="block text-sm font-medium text-foreground mb-1">Email *</label>
-                      <input
-                        ref={emailInputRef}
-                        type="email"
-                        placeholder="e.g., alex@example.com"
-                        value={inviteEmail}
-                        onChange={handleEmailChange}
-                        onFocus={() => {
-                          if (inviteEmail) setSearchQuery(inviteEmail);
-                        }}
-                        onBlur={() => {
-                          // Delay hiding dropdown to allow clicks
-                          setTimeout(() => setShowDropdown(false), 200);
-                        }}
-                        className="w-full bg-input text-foreground rounded-[var(--radius)] py-2 px-3 focus:outline-none focus:ring-2 focus:ring-ring border border-border"
-                        required
-                        autoComplete="off"
-                      />
+            </div>
+            
+            <div className="relative">
+              <Label htmlFor="invite-email">Email *</Label>
+              <Input
+                id="invite-email"
+                ref={emailInputRef}
+                type="email"
+                placeholder="e.g., alex@example.com"
+                value={inviteEmail}
+                onChange={handleEmailChange}
+                onFocus={() => {
+                  if (inviteEmail) setSearchQuery(inviteEmail);
+                }}
+                onBlur={() => {
+                  // Delay hiding dropdown to allow clicks
+                  setTimeout(() => setShowDropdown(false), 200);
+                }}
+                required
+                autoComplete="off"
+              />
                       {showDropdown && searchResults.length > 0 && inviteEmail && (
                         <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-[var(--radius)] shadow-lg max-h-60 overflow-y-auto">
                           {searchResults.map((user, idx) => (
@@ -408,62 +738,302 @@ const Settings: React.FC = () => {
                           ))}
                         </div>
                       )}
-                      {isSearchingGlobal && (
-                        <p className="absolute right-3 top-9 text-xs text-muted-foreground">Searching...</p>
-                      )}
-                  </div>
-                  <div>
-                      <label className="block text-sm font-medium text-foreground mb-1">Description</label>
-                      <textarea
-                        placeholder="Brief description of their role or responsibilities..."
-                        value={inviteDescription}
-                        onChange={(e) => setInviteDescription(e.target.value)}
-                        className="w-full bg-input text-foreground rounded-[var(--radius)] py-2 px-3 focus:outline-none focus:ring-2 focus:ring-ring border border-border min-h-[80px] resize-none"
-                        rows={3}
-                      />
-                  </div>
-                  <div>
-                      <label className="block text-sm font-medium text-foreground mb-1">Role</label>
-                      <select
-                        value={inviteRole}
-                        onChange={(e) => setInviteRole(e.target.value)}
-                        className="w-full bg-input text-foreground rounded-[var(--radius)] py-2 px-3 focus:outline-none focus:ring-2 focus:ring-ring border border-border"
-                      >
-                          <option>Team Member</option>
-                          <option>Consultant</option>
-                          <option>Admin</option>
-                      </select>
-                  </div>
-                  {inviteError && <p className="text-sm text-destructive mt-3">{inviteError}</p>}
-                  <div className="mt-6 flex justify-end gap-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsInviteModalOpen(false);
-                          setInviteName('');
-                          setInviteEmail('');
-                          setInviteDescription('');
-                          setSearchQuery('');
-                          setSearchResults([]);
-                          setShowDropdown(false);
-                          setInviteError(null);
-                        }}
-                        className="bg-secondary text-secondary-foreground font-semibold py-2 px-4 rounded-[var(--radius)] hover:bg-secondary/80 transition-colors shadow-sm"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        type="submit"
-                        disabled={isInviting || !inviteName.trim() || !inviteEmail.trim()}
-                        className="bg-primary text-primary-foreground font-semibold py-2 px-4 rounded-[var(--radius)] hover:bg-primary/90 transition-colors disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed shadow-sm"
-                      >
-                        {isInviting ? 'Sending...' : 'Send Invite'}
-                      </button>
-                  </div>
-              </form>
-          </Card>
-      </div>
+              {isSearchingGlobal && (
+                <p className="absolute right-3 top-2 text-xs text-muted-foreground">Searching...</p>
+              )}
+            </div>
+            
+            <div>
+              <Label htmlFor="invite-description">Description (Optional)</Label>
+              <Textarea
+                id="invite-description"
+                placeholder="Brief description of their role or responsibilities..."
+                value={inviteDescription}
+                onChange={(e) => setInviteDescription(e.target.value)}
+                rows={3}
+                className="resize-none"
+              />
+            </div>
+            
+            <div>
+              <Label htmlFor="invite-role">Role</Label>
+              <Select value={inviteRole} onValueChange={setInviteRole}>
+                <SelectTrigger id="invite-role">
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Team Member">Team Member</SelectItem>
+                  <SelectItem value="Consultant">Consultant</SelectItem>
+                  <SelectItem value="Admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {inviteError && (
+              <p className="text-sm text-destructive">{inviteError}</p>
+            )}
+          </form>
+          
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsInviteModalOpen(false);
+                setInviteName('');
+                setInviteEmail('');
+                setInviteDescription('');
+                setSearchQuery('');
+                clearResults();
+                setShowDropdown(false);
+                setInviteError(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={isInviting || !inviteName.trim() || !inviteEmail.trim()}
+              onClick={handleSubmit}
+              className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"
+            >
+              {isInviting ? 'Sending...' : 'Send Invite'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     );
+  };
+
+  // Manage Member Modal Component
+  const ManageMemberModal = () => {
+    if (!selectedMember) return null;
+    
+    const { deleteMember: removeMember, updateMember } = useTeamMembers(user?.uid);
+    const { createChannel, channels } = useChannels(user?.uid);
+    
+    const handleRemoveMember = async () => {
+      if (!selectedMember?.id || !removeMember) return;
+      
+      try {
+        await removeMember(selectedMember.id);
+        toast({
+          title: 'Member Removed',
+          description: `${selectedMember.name} has been removed from your team.`,
+        });
+        setIsManageMemberModalOpen(false);
+        setSelectedMember(null);
+      } catch (error: any) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: error?.message ?? 'Failed to remove team member',
+        });
+      }
+    };
+    
+    const handleSendDirectMessage = async () => {
+      if (!selectedMember?.id || !user?.uid) return;
+      
+      try {
+        // Check if a DM channel already exists between these two users
+        const existingDM = channels.find(channel => 
+          channel.type === 'direct' &&
+          channel.members.length === 2 &&
+          channel.members.includes(user.uid) &&
+          channel.members.includes(selectedMember.id)
+        );
+        
+        if (existingDM) {
+          // Navigate to existing DM
+          toast({
+            title: 'Channel Ready',
+            description: `You can message ${selectedMember.name} in Team Chat.`,
+          });
+          setIsManageMemberModalOpen(false);
+          // Navigate to Team Chat view to see the channel
+        } else {
+          // Create new DM channel
+          await createChannel(
+            `dm-${user.uid}-${selectedMember.id}`,
+            [user.uid, selectedMember.id],
+            'direct',
+            `Direct message with ${selectedMember.name}`
+          );
+          
+          toast({
+            title: 'Channel Created',
+            description: `You can now message ${selectedMember.name} in Team Chat.`,
+          });
+          setIsManageMemberModalOpen(false);
+          // Navigate to Team Chat view to see the new channel
+        }
+      } catch (error: any) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: error?.message ?? 'Failed to create direct message',
+        });
+      }
+    };
+    
+    const handleChangeRole = () => {
+      setNewRole(selectedMember.role);
+      setIsChangeRoleDialogOpen(true);
+    };
+    
+    
+    return (
+      <Dialog open={isManageMemberModalOpen} onOpenChange={(open) => {
+        setIsManageMemberModalOpen(open);
+        if (!open) setSelectedMember(null);
+      }}>
+        <DialogContent className="max-w-md border-slate-200 bg-white/95 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/95">
+          <DialogHeader>
+            <DialogTitle className="text-2xl">Manage Team Member</DialogTitle>
+            <DialogDescription className="text-slate-600 dark:text-slate-400">
+              View details and manage {selectedMember.name}'s access
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-6 py-4">
+            {/* Member Info */}
+            <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-900/50 rounded-lg border border-slate-200 dark:border-white/10">
+              <img 
+                src={selectedMember.avatar} 
+                alt={selectedMember.name} 
+                className="w-16 h-16 rounded-full ring-2 ring-slate-200 dark:ring-white/10" 
+              />
+              <div className="flex-1">
+                <h3 className="font-semibold text-lg text-slate-900 dark:text-white">{selectedMember.name}</h3>
+                {(selectedMember as any).email && (
+                  <p className="text-sm text-slate-600 dark:text-slate-400">{(selectedMember as any).email}</p>
+                )}
+                <Badge variant="secondary" className="mt-2">
+                  {selectedMember.role}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Member Actions */}
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300">Actions</h4>
+              
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 border-slate-200 hover:bg-slate-100 dark:border-white/10 dark:hover:bg-white/5"
+                onClick={handleSendDirectMessage}
+              >
+                <MessageSquare className="h-4 w-4" />
+                Send Direct Message
+              </Button>
+              
+              <Button
+                variant="outline"
+                className="w-full justify-start gap-2 border-slate-200 hover:bg-slate-100 dark:border-white/10 dark:hover:bg-white/5"
+                onClick={handleChangeRole}
+              >
+                <Shield className="h-4 w-4" />
+                Change Role
+              </Button>
+            </div>
+
+            {/* Danger Zone */}
+            <div className="border-t border-slate-200 dark:border-white/10 pt-4">
+              <h4 className="text-sm font-medium text-destructive mb-3">Danger Zone</h4>
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={handleRemoveMember}
+              >
+                <TrashIcon className="h-4 w-4 mr-2" />
+                Remove from Team
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
+  // Change Role Dialog Component
+  const ChangeRoleDialog = () => {
+    if (!selectedMember) return null;
+    
+    return (
+      <Dialog open={isChangeRoleDialogOpen} onOpenChange={setIsChangeRoleDialogOpen}>
+        <DialogContent className="max-w-sm border-slate-200 bg-white/95 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/95">
+          <DialogHeader>
+            <DialogTitle>Change Role</DialogTitle>
+            <DialogDescription className="text-slate-600 dark:text-slate-400">
+              Update {selectedMember.name}'s role in your team
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="role-select">New Role</Label>
+              <Select value={newRole} onValueChange={setNewRole}>
+                <SelectTrigger id="role-select" className="mt-1">
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Team Member">Team Member</SelectItem>
+                  <SelectItem value="Admin">Admin</SelectItem>
+                  <SelectItem value="Consultant">Consultant</SelectItem>
+                  <SelectItem value="Developer">Developer</SelectItem>
+                  <SelectItem value="Designer">Designer</SelectItem>
+                  <SelectItem value="Manager">Manager</SelectItem>
+                  <SelectItem value="Analyst">Analyst</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsChangeRoleDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                await handleSaveRole();
+              }}
+              disabled={!newRole.trim() || newRole === selectedMember.role}
+              className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"
+            >
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    );
+  };
+
+  const handleSaveRole = async () => {
+    if (!selectedMember?.id || !newRole.trim()) return;
+    
+    const { updateMember } = useTeamMembers(user?.uid);
+    if (!updateMember) return;
+    
+    try {
+      await updateMember(selectedMember.id, { role: newRole });
+      toast({
+        title: 'Role Updated',
+        description: `${selectedMember.name}'s role has been changed to ${newRole}`,
+      });
+      setIsChangeRoleDialogOpen(false);
+      // Update the local selected member
+      setSelectedMember({ ...selectedMember, role: newRole });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error?.message ?? 'Failed to update role',
+      });
+    }
   };
 
 
@@ -740,7 +1310,17 @@ const Settings: React.FC = () => {
                                 <p className="text-sm text-muted-foreground">{member.role}</p>
                             </div>
                         </div>
-                        <button className="text-sm text-muted-foreground hover:text-foreground transition-colors">Manage</button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => {
+                            setSelectedMember(member);
+                            setIsManageMemberModalOpen(true);
+                          }}
+                          className="text-sm"
+                        >
+                          Manage
+                        </Button>
                     </div>
                   ))
                 ) : (
@@ -756,8 +1336,27 @@ const Settings: React.FC = () => {
       case 'integrations':
         return (
             <div className="space-y-6 animate-fade-in">
-                <h2 className="text-2xl font-bold text-foreground">Integrations</h2>
-                <p className="text-muted-foreground -mt-4">Connect your tools to power Aether's AI insights.</p>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-foreground">Integrations</h2>
+                    <p className="text-muted-foreground mt-1">Connect your tools to power Aether's AI insights.</p>
+                  </div>
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // Open a test dialog or navigate to integration test page
+                      toast({
+                        title: 'Testing Integrations',
+                        description: 'Use the Test buttons below to verify each integration',
+                      });
+                    }}
+                    className="gap-2"
+                  >
+                    <SparklesIcon className="h-4 w-4" />
+                    Test All
+                  </Button>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <Card>
                         <div className="flex items-center justify-between">
@@ -766,13 +1365,7 @@ const Settings: React.FC = () => {
                         </div>
                         <p className="text-sm text-muted-foreground mt-2">Sync your sales, product, and customer data for real-time analytics.</p>
                     </Card>
-                    <Card>
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-semibold text-foreground">HubSpot</h3>
-                            <button className="bg-primary text-primary-foreground font-semibold py-1 px-3 rounded-[var(--radius)] text-sm hover:bg-primary/90 transition-colors shadow-sm">Connect</button>
-                        </div>
-                         <p className="text-sm text-muted-foreground mt-2">Integrate your CRM to track leads and funnels directly within Aether.</p>
-                    </Card>
+                    <HubSpotIntegrationCard />
                     <Card>
                         <div className="flex items-center justify-between">
                             <h3 className="text-lg font-semibold text-foreground">Google Analytics</h3>
@@ -780,13 +1373,7 @@ const Settings: React.FC = () => {
                         </div>
                          <p className="text-sm text-muted-foreground mt-2">Get deeper insights into your website traffic and user behavior.</p>
                     </Card>
-                     <Card>
-                        <div className="flex items-center justify-between">
-                            <h3 className="text-lg font-semibold text-foreground">Slack</h3>
-                            <button className="bg-primary text-primary-foreground font-semibold py-1 px-3 rounded-[var(--radius)] text-sm hover:bg-primary/90 transition-colors shadow-sm">Connect</button>
-                        </div>
-                         <p className="text-sm text-muted-foreground mt-2">Receive important Aether notifications directly in your Slack channels.</p>
-                    </Card>
+                     <SlackIntegrationCard />
                 </div>
             </div>
         );
@@ -919,6 +1506,9 @@ const Settings: React.FC = () => {
           </Card>
         </div>
       )}
+      {isInviteModalOpen && <InviteMemberModal />}
+      {isManageMemberModalOpen && <ManageMemberModal />}
+      {isChangeRoleDialogOpen && <ChangeRoleDialog />}
       <div className="flex flex-col md:flex-row gap-8">
         <aside className="w-full md:w-1/4">
           <Card className="p-2 sticky top-8">

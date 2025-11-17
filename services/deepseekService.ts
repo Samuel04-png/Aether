@@ -79,11 +79,11 @@ export const summarizeText = async (textToSummarize: string): Promise<string> =>
   const messages: DeepSeekMessage[] = [
     {
       role: 'system',
-      content: 'You are an expert business analyst. Summarize news articles for small business owners focusing on key takeaways, potential impact, and actionable insights.'
+      content: 'You are a helpful business partner who breaks down news and articles into what really matters. Talk like a friend would - clear, direct, and practical. No jargon unless it\'s actually useful.'
     },
     {
       role: 'user',
-      content: `Summarize the following news article. Focus on the key takeaways, potential impact, and actionable insights. Keep it concise and clear, using bullet points for the main takeaways. Article: "${textToSummarize}"`
+      content: `Hey, can you help me understand this article? Break it down for me - what are the main points, how might this affect my business, and what should I actually do about it? Keep it simple and use bullet points. Here\'s the article: "${textToSummarize}"`
     }
   ];
 
@@ -120,16 +120,11 @@ export const generateSocialPost = async (topic: string, platform: string, tone: 
   const messages: DeepSeekMessage[] = [
     {
       role: 'system',
-      content: 'You are a professional social media manager who creates engaging posts for small businesses.'
+      content: 'You\'re a social media whiz who gets how to make content that actually connects with people. You know what works on each platform and how to write in a way that feels authentic, not salesy.'
     },
     {
       role: 'user',
-      content: `Write a social media post for a small business.
-Platform: ${platform}
-Topic: ${topic}
-Tone: ${tone}
-
-Keep the post concise, engaging, and relevant for the specified platform. Include relevant hashtags.`
+      content: `I need a ${platform} post about ${topic}, and I want it to sound ${tone}. Make it engaging and authentic - the kind of thing people would actually want to read and share. Add some relevant hashtags that make sense (not too many!).`
     }
   ];
 
@@ -192,16 +187,17 @@ export const generateWebsiteAudit = async (url: string): Promise<WebsiteAuditRes
   const messages: DeepSeekMessage[] = [
     {
       role: 'system',
-      content: 'You are an expert SEO, web performance, and accessibility analyst. Return ONLY valid JSON.'
+      content: 'You\'re a web expert who knows SEO, performance, and accessibility inside out. You explain things in plain English and focus on what actually matters. Return ONLY valid JSON.'
     },
     {
       role: 'user',
-      content: `Analyze the website: ${url}
+      content: `Give this website a quick audit: ${url}
 
-Domain: ${domain}
-Protocol: ${parsedUrl.protocol}
-Path: ${path || '/'}
-HTTPS: ${isHTTPS ? 'Yes' : 'No'}
+What we know:
+- Domain: ${domain}
+- Protocol: ${parsedUrl.protocol}
+- Path: ${path || '/'}
+- HTTPS: ${isHTTPS ? 'Yes' : 'No'}
 
 Based on the URL structure and domain, provide a comprehensive website audit. Return a JSON object with this EXACT structure:
 {
@@ -336,20 +332,18 @@ export const generatePersonalizedLeadMessage = async (name: string, company: str
   const messages: DeepSeekMessage[] = [
     {
       role: 'system',
-      content: 'You are a sales expert specializing in personalized outreach. Generate short, friendly, and professional outreach emails.'
+      content: 'You\'re great at writing outreach messages that feel personal and genuine, not like spam. You know how to start conversations, not pitch products.'
     },
     {
       role: 'user',
-      content: `Generate a short, friendly, and professional outreach email to a new lead.
+      content: `Help me write a friendly message to reach out to this person:
     
-Lead's Name: ${name}
-Lead's Company: ${company}
-Lead Source: ${source}
+Who: ${name} at ${company}
+How we found them: ${source}
 
-Your goal is to start a conversation, not to hard-sell. Mention their company and how they were discovered (the source).
-Keep it under 100 words.
+Keep it conversational and authentic - like you\'re genuinely interested in connecting, not selling. Mention their company naturally and reference where you found them. Keep it short (under 100 words).
 
-Start with "Hi ${name}," and end with your name, "Alex from Aether".`
+Start with "Hi ${name}," and end with "Alex from Aether" (that\'s me!).`
     }
   ];
 
@@ -374,34 +368,37 @@ export const generateBusinessInsights = async (userData: {
   const messages: DeepSeekMessage[] = [
     {
       role: 'system',
-      content: 'You are an AI business analyst for Aether. Analyze business data and provide actionable insights. Return ONLY valid JSON.'
+      content: 'You\'re a business coach who\'s really good at spotting patterns and opportunities in the data. You give advice that\'s practical and specific to what you see, not generic platitudes. Return ONLY valid JSON.'
     },
     {
       role: 'user',
-      content: `Analyze the following business data and provide 3 actionable insights (one recommendation, one alert, one productivity tip).
+      content: `Take a look at this business and tell me what you see - give me one solid recommendation for growth, one heads-up about something that needs attention, and one practical tip to work smarter.
 
-Business Name: ${userData.businessName || 'Not specified'}
-Industry: ${userData.industry || 'Not specified'}
-Goals: ${userData.goals?.join(', ') || 'Not specified'}
+Here's what we're working with:
+Business: ${userData.businessName || 'Getting started'}
+Industry: ${userData.industry || 'Not specified yet'}
+Goals: ${userData.goals?.join(', ') || 'Setting up'}
 
-Tasks: ${userData.tasks?.length || 0} total tasks
-- Completed: ${userData.tasks?.filter((t: any) => t.status === 'done').length || 0}
-- In Progress: ${userData.tasks?.filter((t: any) => t.status === 'inprogress').length || 0}
-- To Do: ${userData.tasks?.filter((t: any) => t.status === 'todo').length || 0}
+Task status:
+- Total: ${userData.tasks?.length || 0}
+- Done: ${userData.tasks?.filter((t: any) => t.status === 'done').length || 0}
+- In progress: ${userData.tasks?.filter((t: any) => t.status === 'inprogress').length || 0}
+- To do: ${userData.tasks?.filter((t: any) => t.status === 'todo').length || 0}
 
-Projects: ${userData.projects?.length || 0} projects
-Leads: ${userData.leads?.length || 0} leads
-KPIs: ${userData.kpis?.length || 0} tracked metrics
-Sales Data: ${userData.monthlySales?.length || 0} months of data
+Other numbers:
+- ${userData.projects?.length || 0} projects going
+- ${userData.leads?.length || 0} leads in the pipeline
+- ${userData.kpis?.length || 0} metrics being tracked
+- ${userData.monthlySales?.length || 0} months of sales data
 
-Return a JSON array with exactly 3 insights:
+Give me a JSON array with exactly 3 insights that are specific to THIS data:
 [
-  { "type": "recommendation", "title": "Title", "content": "Actionable recommendation based on data" },
-  { "type": "alert", "title": "Title", "content": "Important alert or warning" },
-  { "type": "tip", "title": "Title", "content": "Productivity tip" }
+  { "type": "recommendation", "title": "Short title", "content": "Specific, actionable advice based on what you see" },
+  { "type": "alert", "title": "Short title", "content": "Something important that needs attention now" },
+  { "type": "tip", "title": "Short title", "content": "A practical way to work more efficiently" }
 ]
 
-Make insights specific, actionable, and based on the actual data provided.`
+Make it feel personal and relevant - not generic advice that could apply to anyone.`
     }
   ];
 
@@ -439,12 +436,12 @@ export const generateCopilotResponse = async (
   const messages: DeepSeekMessage[] = [
     {
       role: 'system',
-      content: `You are Byte&Berry Copilot, an AI assistant inside the Aether workspace. You help users analyze their business data, surface insights, and plan next steps.
+      content: `Hey! You're the Byte&Berry Copilot - think of yourself as a savvy business partner who's always got your back. You're here to help make sense of all the data, spot opportunities, and figure out what to do next.
 
-Workspace context:
+Here's what's happening in the workspace:
 ${context}
 
-Answer in a friendly, concise tone. Use bullet points when helpful and surface specific data-driven insights.`
+Talk like you're chatting with a friend over coffee - warm, genuine, and straight to the point. Skip the corporate speak. When you share insights, make them actionable and based on what you actually see in their data. Use bullet points when it makes things clearer, but don't overdo it. If you spot something important, call it out directly. If something's confusing or you need more info, just ask.`
     }
   ];
 

@@ -76,6 +76,9 @@ export const LogoutIcon: React.FC = () => (
 export const CloseIcon: React.FC = () => (
     <svg {...iconProps}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
 );
+export const MicIcon: React.FC = () => (
+    <svg {...iconProps}><path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" /></svg>
+);
 export const CsvIcon: React.FC = () => (
     <svg {...iconProps}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.188V18a2.25 2.25 0 002.25 2.25h3.839a2.25 2.25 0 002.08-1.573l.44-1.841M14.25 9.75L12 12m0 0l-2.25 2.25M12 12l2.25 2.25M12 12L9.75 9.75M15 3.75H9A2.25 2.25 0 006.75 6v12A2.25 2.25 0 009 20.25h1.5" /></svg>
 );

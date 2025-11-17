@@ -46,3 +46,6 @@ firestore-debug.log
 .cache/
 .temp/
 .tmp/
+
+# HubSpot config file
+hubspot.config.yml

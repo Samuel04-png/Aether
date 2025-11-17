@@ -312,10 +312,21 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
         // Calculate new progress
         const totalTasks = updatedTasks.length;
         const completedTasks = updatedTasks.filter(task => task.status === 'done').length;
+        const inProgressTasks = updatedTasks.filter(task => task.status === 'inprogress').length;
         const newProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
         
+        // Calculate project status based on task completion
+        let projectStatus: Project['status'] = 'Not Started';
+        if (completedTasks === totalTasks && totalTasks > 0) {
+            projectStatus = 'On Track'; // All tasks completed
+        } else if (inProgressTasks > 0 || completedTasks > 0) {
+            projectStatus = 'On Track'; // Some tasks in progress or completed
+        } else if (totalTasks > 0) {
+            projectStatus = 'Not Started'; // No tasks started yet
+        }
+        
         try {
-            await onUpdate(project.id, { tasks: updatedTasks, progress: newProgress });
+            await onUpdate(project.id, { tasks: updatedTasks, progress: newProgress, status: projectStatus });
             toast({
                 title: 'Status Updated',
                 description: `Task status changed to ${newStatus === 'todo' ? 'To Do' : newStatus === 'inprogress' ? 'In Progress' : 'Done'}`,

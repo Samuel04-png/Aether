@@ -1,4 +1,4 @@
-export type ViewType = 'dashboard' | 'chat' | 'insights' | 'tasks' | 'projects' | 'leads' | 'settings' | 'notifications';
+export type ViewType = 'dashboard' | 'chat' | 'insights' | 'tasks' | 'projects' | 'leads' | 'settings' | 'notifications' | 'meetings' | 'integration-test';
 
 export type TaskStatus = 'todo' | 'inprogress' | 'done';
 

@@ -35,13 +35,20 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 const AddLeadModal: React.FC<{ onClose: () => void; onAddLead: (lead: NewLeadInput) => Promise<void>; }> = ({ onClose, onAddLead }) => {
-    const [view, setView] = useState<'options' | 'manual'>('options');
+    const [view, setView] = useState<'options' | 'manual' | 'csv' | 'crm'>('options');
     const [name, setName] = useState('');
     const [company, setCompany] = useState('');
     const [email, setEmail] = useState('');
     const [source, setSource] = useState('Manual');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
+    
+    // CSV import state
+    const [csvFile, setCsvFile] = useState<File | null>(null);
+    const [importStatus, setImportStatus] = useState<'idle' | 'validating' | 'validated' | 'importing'>('idle');
+    const [validationResult, setValidationResult] = useState<any>(null);
+    const { toast } = useToast();
+    const { user } = useAuth();
 
     const handleAdd = async () => {
         if(!name || !company || !email) return;
@@ -61,6 +68,102 @@ const AddLeadModal: React.FC<{ onClose: () => void; onAddLead: (lead: NewLeadInp
         }
     };
 
+    const handleCSVUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.name.endsWith('.csv')) {
+            toast({
+                variant: 'destructive',
+                title: 'Invalid File',
+                description: 'Please upload a CSV file',
+            });
+            return;
+        }
+
+        setCsvFile(file);
+        setImportStatus('validating');
+
+        try {
+            // Dynamic import to avoid bundling issues
+            const { importLeadsFromCSV, validateLeads } = await import('../services/leadImportService');
+            const { rows, error } = await importLeadsFromCSV(file);
+            
+            if (error) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Import Error',
+                    description: error,
+                });
+                setImportStatus('idle');
+                return;
+            }
+
+            const validation = validateLeads(rows);
+            setValidationResult(validation);
+            setImportStatus('validated');
+
+            if (!validation.valid) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Validation Failed',
+                    description: validation.errors.join('. '),
+                });
+            }
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Import Error',
+                description: error.message || 'Failed to process CSV file',
+            });
+            setImportStatus('idle');
+        }
+    };
+
+    const handleImport = async () => {
+        if (!validationResult || !user?.uid) return;
+
+        setImportStatus('importing');
+        try {
+            const { saveImportedLeads } = await import('../services/leadImportService');
+            const result = await saveImportedLeads(user.uid, validationResult.validLeads);
+            
+            if (result.success) {
+                toast({
+                    title: 'Import Successful',
+                    description: `Successfully imported ${result.imported} lead(s)`,
+                });
+                onClose();
+                window.location.reload(); // Refresh to show new leads
+            } else {
+                toast({
+                    variant: 'destructive',
+                    title: 'Import Failed',
+                    description: result.error || 'Failed to save leads',
+                });
+            }
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Import Failed',
+                description: error.message || 'Failed to import leads',
+            });
+        } finally {
+            setImportStatus('idle');
+        }
+    };
+
+    const downloadTemplate = () => {
+        import('../services/leadImportService').then(({ downloadSampleCSV }) => {
+            downloadSampleCSV();
+            toast({
+                title: 'Template Downloaded',
+                description: 'Check your downloads folder for the sample CSV',
+            });
+        });
+    };
+
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
             <Card className="w-full max-w-lg animate-slide-in-up">
@@ -75,15 +178,15 @@ const AddLeadModal: React.FC<{ onClose: () => void; onAddLead: (lead: NewLeadInp
                            <PlusIcon />
                            <p className="mt-2 font-semibold text-foreground">Add Manually</p>
                         </button>
-                         <button className="p-4 bg-card/50 rounded-[var(--radius)] text-center hover:bg-accent transition-colors border border-border">
+                         <button onClick={() => setView('csv')} className="p-4 bg-card/50 rounded-[var(--radius)] text-center hover:bg-accent transition-colors border border-border">
                            <CsvIcon />
                            <p className="mt-2 font-semibold text-foreground">Upload CSV</p>
-                           <span className="text-xs text-muted-foreground">(Coming Soon)</span>
+                           <span className="text-xs text-muted-foreground">Import from file</span>
                         </button>
-                         <button className="p-4 bg-card/50 rounded-[var(--radius)] text-center hover:bg-accent transition-colors border border-border">
+                         <button onClick={() => setView('crm')} className="p-4 bg-card/50 rounded-[var(--radius)] text-center hover:bg-accent transition-colors border border-border">
                            <CrmIcon />
                            <p className="mt-2 font-semibold text-foreground">From CRM</p>
-                           <span className="text-xs text-muted-foreground">(Coming Soon)</span>
+                           <span className="text-xs text-muted-foreground">Connect HubSpot, Salesforce</span>
                         </button>
                     </div>
                 )}
@@ -108,6 +211,124 @@ const AddLeadModal: React.FC<{ onClose: () => void; onAddLead: (lead: NewLeadInp
                             <button onClick={handleAdd} disabled={isSubmitting} className="bg-primary text-primary-foreground font-semibold py-2 px-4 rounded-[var(--radius)] hover:bg-primary/90 transition-colors disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed">{isSubmitting ? 'Adding...' : 'Add Lead'}</button>
                         </div>
                         {errorMessage && <p className="text-sm text-destructive mt-3">{errorMessage}</p>}
+                    </div>
+                )}
+                {view === 'csv' && (
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <button onClick={() => setView('options')} className="text-sm text-muted-foreground hover:text-foreground transition-colors">← Back</button>
+                            <button onClick={downloadTemplate} className="text-sm text-primary hover:underline">Download Template</button>
+                        </div>
+                        
+                        <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
+                            <CsvIcon className="mx-auto mb-4" />
+                            <label className="cursor-pointer">
+                                <input
+                                    type="file"
+                                    accept=".csv"
+                                    onChange={handleCSVUpload}
+                                    className="hidden"
+                                />
+                                <span className="text-primary font-semibold hover:underline">
+                                    Click to upload CSV
+                                </span>
+                            </label>
+                            <p className="text-sm text-muted-foreground mt-2">
+                                Or drag and drop your CSV file here
+                            </p>
+                        </div>
+
+                        {csvFile && (
+                            <div className="bg-muted/50 p-4 rounded-lg">
+                                <div className="flex items-center justify-between mb-2">
+                                    <span className="text-sm font-medium">{csvFile.name}</span>
+                                    <Badge variant="secondary">{importStatus}</Badge>
+                                </div>
+                                
+                                {validationResult && (
+                                    <div className="mt-4 space-y-2">
+                                        <div className="flex justify-between text-sm">
+                                            <span>Valid leads:</span>
+                                            <span className="text-emerald-500 font-semibold">
+                                                {validationResult.validLeads.length}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span>Invalid leads:</span>
+                                            <span className="text-destructive font-semibold">
+                                                {validationResult.invalidLeads.length}
+                                            </span>
+                                        </div>
+                                        
+                                        {validationResult.invalidLeads.length > 0 && (
+                                            <details className="mt-4">
+                                                <summary className="text-sm cursor-pointer text-muted-foreground hover:text-foreground">
+                                                    View errors
+                                                </summary>
+                                                <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
+                                                    {validationResult.invalidLeads.map((item: any, idx: number) => (
+                                                        <div key={idx} className="text-xs bg-destructive/10 p-2 rounded">
+                                                            <strong>Row {item.lead.row}:</strong> {item.errors.join(', ')}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </details>
+                                        )}
+                                        
+                                        {validationResult.valid && (
+                                            <button 
+                                                className="w-full mt-4 bg-primary text-primary-foreground py-2 px-4 rounded-[var(--radius)] hover:bg-primary/90 font-semibold" 
+                                                onClick={handleImport}
+                                                disabled={importStatus === 'importing'}
+                                            >
+                                                {importStatus === 'importing' ? 'Importing...' : `Import ${validationResult.validLeads.length} Lead(s)`}
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+                {view === 'crm' && (
+                    <div className="space-y-4">
+                        <button onClick={() => setView('options')} className="text-sm text-muted-foreground hover:text-foreground transition-colors">← Back</button>
+                        
+                        <div className="space-y-3">
+                            <div className="p-4 bg-card border border-border rounded-[var(--radius)]">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h4 className="font-semibold">HubSpot</h4>
+                                        <p className="text-sm text-muted-foreground">Import contacts from HubSpot</p>
+                                    </div>
+                                    <button className="text-sm bg-primary text-primary-foreground py-1 px-3 rounded hover:bg-primary/90">Connect</button>
+                                </div>
+                            </div>
+                            <div className="p-4 bg-card border border-border rounded-[var(--radius)]">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h4 className="font-semibold">Salesforce</h4>
+                                        <p className="text-sm text-muted-foreground">Import leads from Salesforce</p>
+                                    </div>
+                                    <button className="text-sm bg-primary text-primary-foreground py-1 px-3 rounded hover:bg-primary/90">Connect</button>
+                                </div>
+                            </div>
+                            <div className="p-4 bg-card border border-border rounded-[var(--radius)]">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h4 className="font-semibold">Pipedrive</h4>
+                                        <p className="text-sm text-muted-foreground">Sync contacts from Pipedrive</p>
+                                    </div>
+                                    <button className="text-sm bg-primary text-primary-foreground py-1 px-3 rounded hover:bg-primary/90">Connect</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="bg-muted/50 p-4 rounded-lg">
+                            <p className="text-sm text-muted-foreground">
+                                Third-party integrations require API configuration. Contact your administrator to set up CRM integrations.
+                            </p>
+                        </div>
                     </div>
                 )}
             </Card>

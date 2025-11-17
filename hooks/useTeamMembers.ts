@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import {
   addDoc,
   collection,
+  deleteDoc,
   doc,
   onSnapshot,
   orderBy,
@@ -116,6 +117,27 @@ export const useTeamMembers = (userId?: string) => {
   const pendingMembers = members.filter((m: any) => m.status === 'pending');
   const acceptedMembers = members.filter((m: any) => !m.status || m.status === 'accepted');
 
+  const deleteMember = useCallback(
+    async (memberId: string) => {
+      if (!userId) throw new Error('You must be signed in to delete team members.');
+      const memberDoc = doc(db, 'users', userId, 'teamMembers', memberId);
+      await deleteDoc(memberDoc);
+    },
+    [userId],
+  );
+
+  const updateMember = useCallback(
+    async (memberId: string, updates: Partial<TeamMember>) => {
+      if (!userId) throw new Error('You must be signed in to update team members.');
+      const memberDoc = doc(db, 'users', userId, 'teamMembers', memberId);
+      await updateDoc(memberDoc, {
+        ...updates,
+        updatedAt: serverTimestamp(),
+      });
+    },
+    [userId],
+  );
+
   return {
     members,
     pendingMembers,
@@ -123,9 +145,11 @@ export const useTeamMembers = (userId?: string) => {
     loading,
     error,
     addMember,
+    updateMember,
     updateMemberStatus,
     acceptMember,
     rejectMember,
+    deleteMember,
   };
 };
 

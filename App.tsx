@@ -42,6 +42,8 @@ const Projects = lazy(() => import('./components/Projects'));
 const Settings = lazy(() => import('./components/Settings'));
 const Leads = lazy(() => import('./components/Leads'));
 const NotificationsPage = lazy(() => import('./components/NotificationsPage'));
+const MeetingNotes = lazy(() => import('./components/MeetingNotes'));
+const IntegrationTest = lazy(() => import('./components/IntegrationTest'));
 
 const App: React.FC = () => {
   // Developer: Byte&Berry | https://impeldown.dev
@@ -202,7 +204,7 @@ const App: React.FC = () => {
     return (
       <ErrorBoundary>
         <Suspense fallback={
-          <div className="space-y-6 p-6">
+          <div className="space-y-6 p-6 animate-pulse">
             <Skeleton className="h-10 w-64" />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -210,6 +212,9 @@ const App: React.FC = () => {
               ))}
             </div>
             <Skeleton className="h-96 w-full" />
+            <p className="text-sm text-muted-foreground text-center mt-4">
+              Loading {activeView}...
+            </p>
           </div>
         }>
           {activeView === 'dashboard' && <Dashboard onNavigate={(view) => setActiveView(view as ViewType)} />}
@@ -218,8 +223,10 @@ const App: React.FC = () => {
           {activeView === 'tasks' && <Tasks />}
           {activeView === 'projects' && <Projects />}
           {activeView === 'leads' && <Leads />}
+          {activeView === 'meetings' && <MeetingNotes />}
           {activeView === 'notifications' && <NotificationsPage />}
           {activeView === 'settings' && <Settings />}
+          {activeView === 'integration-test' && <IntegrationTest />}
         </Suspense>
       </ErrorBoundary>
     );

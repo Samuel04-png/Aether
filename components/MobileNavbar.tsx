@@ -1,6 +1,6 @@
 import React from 'react';
 import { ViewType } from '../types';
-import { DashboardIcon, TasksIcon, ChatIcon, SettingsIcon } from './shared/Icons';
+import { DashboardIcon, TasksIcon, ChatIcon, SettingsIcon, MicIcon } from './shared/Icons';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
@@ -14,6 +14,7 @@ const MobileNavbar: React.FC<MobileNavbarProps> = ({ activeView, onNavigate }) =
     { id: 'dashboard' as ViewType, label: 'Home', icon: DashboardIcon },
     { id: 'tasks' as ViewType, label: 'Tasks', icon: TasksIcon },
     { id: 'chat' as ViewType, label: 'Forum', icon: ChatIcon },
+    { id: 'meetings' as ViewType, label: 'Meetings', icon: MicIcon },
     { id: 'settings' as ViewType, label: 'Settings', icon: SettingsIcon },
   ];
 

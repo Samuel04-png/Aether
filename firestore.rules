@@ -172,5 +172,72 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create, update, delete: if isOwner(directoryUserId);
     }
+    
+    // Slack integrations - top-level collection
+    // Document ID is the userId for easy lookup
+    match /slackIntegrations/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // Meeting notes - top-level collection with userId field
+    match /meetingNotes/{meetingId} {
+      // Read: User must own the meeting note
+      allow read: if isSignedIn() && 
+        resource.data.userId == request.auth.uid;
+      
+      // Create: User must be authenticated and set themselves as owner
+      allow create: if isSignedIn() && 
+        request.resource.data.userId == request.auth.uid;
+      
+      // Update: Only owner can update
+      allow update: if isSignedIn() && 
+        resource.data.userId == request.auth.uid;
+      
+      // Delete: Only owner can delete
+      allow delete: if isSignedIn() && 
+        resource.data.userId == request.auth.uid;
+    }
+    
+    // Global leads collection (for imports from HubSpot, CSV, etc.)
+    match /leads/{leadId} {
+      // Read: User must own the lead
+      allow read: if isSignedIn() && 
+        resource.data.userId == request.auth.uid;
+      
+      // Create: User must be authenticated and set themselves as owner
+      allow create: if isSignedIn() && 
+        request.resource.data.userId == request.auth.uid;
+      
+      // Update: Only owner can update
+      allow update: if isSignedIn() && 
+        resource.data.userId == request.auth.uid;
+      
+      // Delete: Only owner can delete
+      allow delete: if isSignedIn() && 
+        resource.data.userId == request.auth.uid;
+    }
+    
+    // Global tasks collection (for AI CRUD operations)
+    match /tasks/{taskId} {
+      // Read: User must own or be assigned the task
+      allow read: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.assignedTo == request.auth.uid
+      );
+      
+      // Create: User must be authenticated and set themselves as owner
+      allow create: if isSignedIn() && 
+        request.resource.data.userId == request.auth.uid;
+      
+      // Update: Owner or assignee can update
+      allow update: if isSignedIn() && (
+        resource.data.userId == request.auth.uid ||
+        resource.data.assignedTo == request.auth.uid
+      );
+      
+      // Delete: Only owner can delete
+      allow delete: if isSignedIn() && 
+        resource.data.userId == request.auth.uid;
+    }
   }
 }

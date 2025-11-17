@@ -31,6 +31,7 @@ const TeamChat: React.FC = () => {
   // Modals
   const [isCreateChannelOpen, setIsCreateChannelOpen] = useState(false);
   const [isChannelSettingsOpen, setIsChannelSettingsOpen] = useState(false);
+  const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
   
   // Create channel form
   const [newChannelName, setNewChannelName] = useState('');
@@ -475,7 +476,7 @@ const TeamChat: React.FC = () => {
                       className="border-border hover:bg-muted"
                       onClick={() => {
                         setIsChannelSettingsOpen(false);
-                        setIsCreateChannelOpen(true);
+                        setIsAddMemberModalOpen(true);
                       }}
                     >
                       <PlusIcon className="h-4 w-4 mr-2" />
@@ -546,30 +547,194 @@ const TeamChat: React.FC = () => {
         )}
       </Dialog>
 
+      {/* Add Member to Channel Modal */}
+      <Dialog open={isAddMemberModalOpen} onOpenChange={(open) => {
+        setIsAddMemberModalOpen(open);
+        if (!open) {
+          setSearchTerm('');
+          setSelectedMembers([]);
+          clearSearch();
+        }
+      }}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Add Members to #{selectedChannel?.name}</DialogTitle>
+            <DialogDescription>
+              Search for team members to add to this channel.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label>Search Members</Label>
+              <SearchInput
+                value={searchTerm}
+                onChange={(e) => handleSearch(e.target.value)}
+                placeholder="Search by name or email..."
+              />
+            </div>
+
+            {/* Search Results */}
+            {searchTerm.trim() && (
+              <div className="border border-border rounded-md max-h-[300px] overflow-y-auto">
+                {searching ? (
+                  <div className="p-4 text-center text-sm text-muted-foreground">
+                    <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
+                    Searching...
+                  </div>
+                ) : searchResults.length > 0 ? (
+                  <div className="divide-y divide-border">
+                    {searchResults.map((member) => {
+                      const isAlreadyMember = selectedChannel?.members?.includes(member.id);
+                      const isSelected = selectedMembers.includes(member.id);
+                      
+                      return (
+                        <button
+                          key={member.id}
+                          onClick={() => {
+                            if (!isAlreadyMember) {
+                              toggleMemberSelection(member.id);
+                            }
+                          }}
+                          disabled={isAlreadyMember}
+                          className={cn(
+                            "w-full p-3 flex items-center justify-between transition-colors",
+                            isAlreadyMember && "opacity-50 cursor-not-allowed",
+                            !isAlreadyMember && "hover:bg-muted/50",
+                            isSelected && !isAlreadyMember && "bg-muted"
+                          )}
+                        >
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={member.avatar} alt={member.name} />
+                              <AvatarFallback>
+                                {member.name[0]}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="text-left">
+                              <p className="text-sm font-medium text-foreground">{member.name}</p>
+                              {member.email && (
+                                <p className="text-xs text-muted-foreground">{member.email}</p>
+                              )}
+                            </div>
+                          </div>
+                          {isAlreadyMember ? (
+                            <Badge variant="secondary" className="text-xs">Already member</Badge>
+                          ) : isSelected ? (
+                            <Badge variant="default" className="text-xs">Selected</Badge>
+                          ) : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="p-4 text-center text-sm text-muted-foreground">
+                    No members found
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Selected Members */}
+            {selectedMembers.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">
+                  Selected ({selectedMembers.length})
+                </Label>
+                <div className="flex flex-wrap gap-2">
+                  {selectedMembers.map((memberId) => {
+                    const member = searchResults.find(m => m.id === memberId) || 
+                                   members.find(m => m.id === memberId);
+                    if (!member) return null;
+                    return (
+                      <Badge
+                        key={memberId}
+                        variant="secondary"
+                        className="gap-1 pr-1"
+                      >
+                        {member.name}
+                        <button
+                          type="button"
+                          onClick={() => toggleMemberSelection(memberId)}
+                          className="ml-1 rounded-full p-0.5 hover:bg-muted-foreground/20"
+                        >
+                          <CloseIcon className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsAddMemberModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!selectedChannelId || selectedMembers.length === 0) return;
+                
+                try {
+                  // Add all selected members
+                  for (const memberId of selectedMembers) {
+                    await addMemberToChannel(selectedChannelId, memberId);
+                  }
+                  
+                  toast({
+                    title: 'Members Added',
+                    description: `${selectedMembers.length} member(s) added to the channel`,
+                  });
+                  
+                  setIsAddMemberModalOpen(false);
+                  setSelectedMembers([]);
+                  setSearchTerm('');
+                  clearSearch();
+                } catch (error: any) {
+                  toast({
+                    variant: 'destructive',
+                    title: 'Error',
+                    description: error?.message ?? 'Failed to add members',
+                  });
+                }
+              }}
+              disabled={selectedMembers.length === 0}
+              className="bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"
+            >
+              Add {selectedMembers.length > 0 ? `(${selectedMembers.length})` : ''}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Main Chat Interface */}
       <motion.div
         initial={fadeInUp.initial}
         animate={fadeInUp.animate}
         exit={fadeInUp.exit}
         transition={transitions.quick}
-        className="flex h-full gap-4"
+        className="flex flex-col lg:flex-row h-full gap-4"
       >
-        {/* Channels Sidebar */}
-        <Card className="w-full md:w-1/4 flex-shrink-0 flex flex-col max-h-full">
+        {/* Channels Sidebar - Hidden on mobile, shown as dropdown */}
+        <Card className="hidden lg:flex w-full lg:w-1/4 flex-shrink-0 flex-col max-h-full">
           <CardHeader className="flex-shrink-0">
             <div className="flex justify-between items-center">
               <CardTitle className="text-lg">Channels</CardTitle>
                 <Dialog open={isCreateChannelOpen} onOpenChange={setIsCreateChannelOpen}>
-                <DialogTrigger asChild>
-                  <Button 
-                    size="icon" 
-                    variant="ghost" 
-                    title="Create Channel"
-                    className="hover:bg-muted text-foreground"
-                  >
-                    <PlusIcon className="h-4 w-4" />
-                  </Button>
-                </DialogTrigger>
+                  <DialogTrigger asChild>
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      title="Create Channel"
+                      className="hover:bg-muted text-foreground h-8 px-2"
+                    >
+                      <PlusIcon className="h-4 w-4" />
+                    </Button>
+                  </DialogTrigger>
               </Dialog>
             </div>
           </CardHeader>
@@ -659,6 +824,47 @@ const TeamChat: React.FC = () => {
             )}
           </CardContent>
         </Card>
+
+        {/* Mobile Channel Selector */}
+        <div className="lg:hidden">
+          <Card className="p-4">
+            <Select value={selectedChannelId || ''} onValueChange={setSelectedChannelId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a channel" />
+              </SelectTrigger>
+              <SelectContent>
+                {publicChannels.length > 0 && (
+                  <>
+                    <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase">Public</div>
+                    {publicChannels.map((channel) => (
+                      <SelectItem key={channel.id} value={channel.id}>
+                        # {channel.name || 'Unnamed Channel'}
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
+                {privateChannels.length > 0 && (
+                  <>
+                    <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase">Private</div>
+                    {privateChannels.map((channel) => (
+                      <SelectItem key={channel.id} value={channel.id}>
+                        🔒 {channel.name || 'Unnamed Channel'}
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
+              </SelectContent>
+            </Select>
+            <Button 
+              size="sm" 
+              className="mt-2 w-full" 
+              onClick={() => setIsCreateChannelOpen(true)}
+            >
+              <PlusIcon className="h-4 w-4 mr-2" />
+              Create Channel
+            </Button>
+          </Card>
+        </div>
 
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col gap-4 min-w-0">
