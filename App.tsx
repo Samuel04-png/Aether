@@ -3,7 +3,7 @@
  * 
  * Developed by Byte&Berry
  * https://impeldown.dev
- * 
+ * https://byteandberry.com
  * © 2024 All rights reserved
  */
 
@@ -32,6 +32,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import MobileNavbar from './components/MobileNavbar';
 import { useScreenSize } from './hooks/useScreenSize';
+import { Analytics } from "@vercel/analytics/react"
 
 // Lazy load heavy components for better performance
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -366,6 +367,7 @@ const App: React.FC = () => {
         )}
         <NotificationsDrawer isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} />
         <Toaster />
+        <Analytics />
       </div>
       {user && (
         <ByteBerryCopilot
