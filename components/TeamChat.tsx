@@ -1,5 +1,5 @@
 import React, { FormEvent, useMemo, useState } from 'react';
-import { SparklesIcon, PlusIcon, UsersIcon, ClockIcon } from './shared/Icons';
+import { SparklesIcon, PlusIcon, UsersIcon, ClockIcon, CloseIcon } from './shared/Icons';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

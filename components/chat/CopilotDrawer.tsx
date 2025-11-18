@@ -124,9 +124,7 @@ What would you like to know?`,
       setIsLoading(true);
 
       try {
-        const {
-          default: { GoogleGenAI },
-        } = await import('@google/genai');
+        const { GoogleGenAI } = await import('@google/genai');
         const apiKey = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
 
         if (!apiKey) {
