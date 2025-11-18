@@ -14,6 +14,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { updateProfile } from 'firebase/auth';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -385,8 +386,9 @@ const Settings: React.FC = () => {
 
   const { user } = useAuth();
   const { profile, loading: profileLoading, saveProfile } = useUserProfile(user?.uid);
-  const { members, pendingMembers, acceptedMembers, loading: membersLoading, addMember, acceptMember, rejectMember } = useTeamMembers(user?.uid);
+  const { members, pendingMembers, acceptedMembers, loading: membersLoading, addMember, acceptMember, rejectMember, deleteMember, updateMember } = useTeamMembers(user?.uid);
   const { searchUsers, clearResults, searchResults: globalSearchResults, isSearching: isSearchingGlobal } = useUserSearch();
+  const { channels, createChannel } = useChannels(user?.uid);
   const { toast } = useToast();
 
   const goalOptions = useMemo(
@@ -716,28 +718,6 @@ const Settings: React.FC = () => {
                 required
                 autoComplete="off"
               />
-                      {showDropdown && searchResults.length > 0 && inviteEmail && (
-                        <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-[var(--radius)] shadow-lg max-h-60 overflow-y-auto">
-                          {searchResults.map((user, idx) => (
-                            <button
-                              key={idx}
-                              type="button"
-                              onClick={() => handleSelectUser(user)}
-                              className="w-full text-left px-4 py-2 hover:bg-muted/50 flex items-center gap-3 transition-colors"
-                            >
-                              {user.avatar && (
-                                <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full" />
-                              )}
-                              <div>
-                                <p className="text-sm font-medium text-foreground">{user.name}</p>
-                                {user.email && (
-                                  <p className="text-xs text-muted-foreground">{user.email}</p>
-                                )}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      )}
               {isSearchingGlobal && (
                 <p className="absolute right-3 top-2 text-xs text-muted-foreground">Searching...</p>
               )}
@@ -809,14 +789,11 @@ const Settings: React.FC = () => {
   const ManageMemberModal = () => {
     if (!selectedMember) return null;
     
-    const { deleteMember: removeMember, updateMember } = useTeamMembers(user?.uid);
-    const { createChannel, channels } = useChannels(user?.uid);
-    
     const handleRemoveMember = async () => {
-      if (!selectedMember?.id || !removeMember) return;
+      if (!selectedMember?.id || !deleteMember) return;
       
       try {
-        await removeMember(selectedMember.id);
+        await deleteMember(selectedMember.id);
         toast({
           title: 'Member Removed',
           description: `${selectedMember.name} has been removed from your team.`,
@@ -833,7 +810,7 @@ const Settings: React.FC = () => {
     };
     
     const handleSendDirectMessage = async () => {
-      if (!selectedMember?.id || !user?.uid) return;
+      if (!selectedMember?.id || !user?.uid || !channels || !createChannel) return;
       
       try {
         // Check if a DM channel already exists between these two users
@@ -1013,10 +990,7 @@ const Settings: React.FC = () => {
   };
 
   const handleSaveRole = async () => {
-    if (!selectedMember?.id || !newRole.trim()) return;
-    
-    const { updateMember } = useTeamMembers(user?.uid);
-    if (!updateMember) return;
+    if (!selectedMember?.id || !newRole.trim() || !updateMember) return;
     
     try {
       await updateMember(selectedMember.id, { role: newRole });
