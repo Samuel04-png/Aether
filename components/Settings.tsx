@@ -491,58 +491,126 @@ const Settings: React.FC = () => {
   const InviteMemberModal = () => {
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviteDescription, setInviteDescription] = useState('');
-    const [searchQuery, setSearchQuery] = useState('');
     const [showDropdown, setShowDropdown] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+    const [localSearchResults, setLocalSearchResults] = useState<typeof globalSearchResults>([]);
+    const [isSearching, setIsSearching] = useState(false);
     const emailInputRef = React.useRef<HTMLInputElement>(null);
     const nameInputRef = React.useRef<HTMLInputElement>(null);
     const searchTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
-    // Debounced search function using global user directory
+    // Sync global search results to local state
     React.useEffect(() => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
+      if (isSearchingGlobal) {
+        setIsSearching(true);
+      } else {
+        setIsSearching(false);
+        setLocalSearchResults(globalSearchResults);
+        if (globalSearchResults.length > 0) {
+          setShowDropdown(true);
+        }
       }
+    }, [globalSearchResults, isSearchingGlobal]);
 
-      if (!searchQuery.trim()) {
-        clearResults();
-        setShowDropdown(false);
-        return;
-      }
-
-      searchTimeoutRef.current = setTimeout(async () => {
-        setShowDropdown(true);
-        await searchUsers(searchQuery.trim());
-      }, 300);
-
+    // Cleanup on unmount or modal close
+    React.useEffect(() => {
       return () => {
         if (searchTimeoutRef.current) {
           clearTimeout(searchTimeoutRef.current);
         }
       };
-    }, [searchQuery, searchUsers, clearResults]);
+    }, []);
+
+    // Debounced search function
+    const handleSearchUsers = async (searchTerm: string) => {
+      if (!searchTerm.trim()) {
+        setLocalSearchResults([]);
+        setShowDropdown(false);
+        return;
+      }
+
+      try {
+        await searchUsers(searchTerm.trim());
+      } catch (error) {
+        console.error('Search error:', error);
+      }
+    };
 
     const handleSelectUser = (user: { id: string; displayName?: string; email: string; photoURL?: string }) => {
       setInviteName(user.displayName || user.email);
       setInviteEmail(user.email);
       setSelectedUserId(user.id);
-      setSearchQuery('');
-      clearResults();
       setShowDropdown(false);
-      // Focus email input after selection
+      setLocalSearchResults([]);
+      // Focus next field after selection
       setTimeout(() => emailInputRef.current?.focus(), 100);
     };
 
     const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
       setInviteEmail(value);
-      setSearchQuery(value);
+      
+      // Clear previous search timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      
+      // Hide dropdown immediately while typing
+      if (showDropdown) {
+        setShowDropdown(false);
+      }
+      
+      // Only search if user has stopped typing for 3 seconds
+      if (value.trim().length > 2) {
+        searchTimeoutRef.current = setTimeout(() => {
+          handleSearchUsers(value);
+        }, 3000); // 3 second delay - only search when user pauses
+      } else {
+        setLocalSearchResults([]);
+      }
     };
 
     const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value;
       setInviteName(value);
-      setSearchQuery(value);
+      
+      // Clear previous search timeout
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      
+      // Hide dropdown immediately while typing
+      if (showDropdown) {
+        setShowDropdown(false);
+      }
+      
+      // Only search if user has stopped typing for 3 seconds
+      if (value.trim().length > 2) {
+        searchTimeoutRef.current = setTimeout(() => {
+          handleSearchUsers(value);
+        }, 3000); // 3 second delay - only search when user pauses
+      } else {
+        setLocalSearchResults([]);
+      }
+    };
+
+    const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        e.preventDefault(); // Prevent form submission
+        
+        // Cancel pending search
+        if (searchTimeoutRef.current) {
+          clearTimeout(searchTimeoutRef.current);
+        }
+        
+        // Get the search value from the input
+        const searchValue = (e.target as HTMLInputElement).value;
+        
+        // Trigger search immediately on Enter
+        if (searchValue.trim().length > 2) {
+          handleSearchUsers(searchValue);
+        }
+      }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -596,16 +664,9 @@ const Settings: React.FC = () => {
           }
         }
         
-        setInviteName('');
-        setInviteEmail('');
-        setInviteDescription('');
-        setSearchQuery('');
-        setSelectedUserId(null);
-        setInviteRole('Team Member');
-        clearResults();
-        setShowDropdown(false);
+        // Close modal and reset form
         setIsInviteModalOpen(false);
-        setInviteError(null);
+        setInviteRole('Team Member');
         toast({
           title: 'Invitation sent',
           description: `${savedName} has been invited to your team.`,
@@ -621,17 +682,25 @@ const Settings: React.FC = () => {
       }
     };
 
+    const handleClose = () => {
+      setIsInviteModalOpen(false);
+      // Reset form state
+      setInviteName('');
+      setInviteEmail('');
+      setInviteDescription('');
+      setSelectedUserId(null);
+      setShowDropdown(false);
+      setInviteError(null);
+      setLocalSearchResults([]);
+      setIsSearching(false);
+    };
+
     return (
       <Dialog open={isInviteModalOpen} onOpenChange={(open) => {
         if (!open) {
-          setIsInviteModalOpen(false);
-          setInviteName('');
-          setInviteEmail('');
-          setInviteDescription('');
-          setSearchQuery('');
-          clearResults();
-          setShowDropdown(false);
-          setInviteError(null);
+          handleClose();
+        } else {
+          setIsInviteModalOpen(true);
         }
       }}>
         <DialogContent className="max-w-lg border-slate-200 bg-white/95 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/95">
@@ -639,6 +708,10 @@ const Settings: React.FC = () => {
             <DialogTitle className="text-2xl font-bold">Invite Team Member</DialogTitle>
             <DialogDescription className="text-slate-600 dark:text-slate-400">
               Search for existing users or enter details to invite a new team member.
+              <br />
+              <span className="text-xs text-muted-foreground mt-1 inline-block">
+                💡 Tip: Press <kbd className="px-1.5 py-0.5 text-[10px] font-semibold bg-muted rounded border border-border">Enter</kbd> to search instantly, or wait 3 seconds
+              </span>
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -651,50 +724,42 @@ const Settings: React.FC = () => {
                 placeholder="e.g., Alex Johnson"
                 value={inviteName}
                 onChange={handleNameChange}
-                onFocus={() => {
-                  if (inviteName) setSearchQuery(inviteName);
-                }}
+                onKeyDown={handleKeyPress}
                 required
                 autoComplete="off"
               />
-                      {showDropdown && (
+              {isSearching && (
+                <div className="absolute right-3 top-9 flex items-center gap-1">
+                  <div className="animate-spin h-3 w-3 border-2 border-primary border-t-transparent rounded-full" />
+                  <p className="text-xs text-muted-foreground">Searching...</p>
+                </div>
+              )}
+                      {showDropdown && localSearchResults.length > 0 && (
                         <div className="absolute z-50 w-full mt-1 bg-card border border-border rounded-[var(--radius)] shadow-lg max-h-60 overflow-y-auto">
-                          {isSearchingGlobal ? (
-                            <div className="p-4 text-center">
-                              <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full mx-auto mb-2" />
-                              <p className="text-sm text-muted-foreground">Searching users...</p>
-                            </div>
-                          ) : globalSearchResults.length > 0 ? (
-                            globalSearchResults.map((user) => (
-                              <button
-                                key={user.id}
-                                type="button"
-                                onClick={() => handleSelectUser(user)}
-                                className="w-full text-left px-4 py-2 hover:bg-muted/50 flex items-center gap-3 transition-colors"
-                              >
-                                {user.photoURL ? (
-                                  <img src={user.photoURL} alt={user.displayName || user.email} className="w-8 h-8 rounded-full" />
-                                ) : (
-                                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                                    <span className="text-xs font-semibold text-primary">
-                                      {(user.displayName || user.email)[0].toUpperCase()}
-                                    </span>
-                                  </div>
-                                )}
-                                <div>
-                                  <p className="text-sm font-medium text-foreground">{user.displayName || user.email}</p>
-                                  {user.email && (
-                                    <p className="text-xs text-muted-foreground">{user.email}</p>
-                                  )}
+                          {localSearchResults.map((user) => (
+                            <button
+                              key={user.id}
+                              type="button"
+                              onClick={() => handleSelectUser(user)}
+                              className="w-full text-left px-4 py-2 hover:bg-muted/50 flex items-center gap-3 transition-colors"
+                            >
+                              {user.photoURL ? (
+                                <img src={user.photoURL} alt={user.displayName || user.email} className="w-8 h-8 rounded-full" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                  <span className="text-xs font-semibold text-primary">
+                                    {(user.displayName || user.email)[0].toUpperCase()}
+                                  </span>
                                 </div>
-                              </button>
-                            ))
-                          ) : searchQuery.trim() ? (
-                            <div className="p-4 text-center">
-                              <p className="text-sm text-muted-foreground">No users found</p>
-                              <p className="text-xs text-muted-foreground mt-1">Try searching by name or email</p>
-                            </div>
-                          ) : null}
+                              )}
+                              <div>
+                                <p className="text-sm font-medium text-foreground">{user.displayName || user.email}</p>
+                                {user.email && (
+                                  <p className="text-xs text-muted-foreground">{user.email}</p>
+                                )}
+                              </div>
+                            </button>
+                          ))}
                         </div>
                       )}
             </div>
@@ -708,18 +773,19 @@ const Settings: React.FC = () => {
                 placeholder="e.g., alex@example.com"
                 value={inviteEmail}
                 onChange={handleEmailChange}
-                onFocus={() => {
-                  if (inviteEmail) setSearchQuery(inviteEmail);
-                }}
+                onKeyDown={handleKeyPress}
                 onBlur={() => {
                   // Delay hiding dropdown to allow clicks
-                  setTimeout(() => setShowDropdown(false), 200);
+                  setTimeout(() => setShowDropdown(false), 300);
                 }}
                 required
                 autoComplete="off"
               />
-              {isSearchingGlobal && (
-                <p className="absolute right-3 top-2 text-xs text-muted-foreground">Searching...</p>
+              {isSearching && (
+                <div className="absolute right-3 top-9 flex items-center gap-1">
+                  <div className="animate-spin h-3 w-3 border-2 border-primary border-t-transparent rounded-full" />
+                  <p className="text-xs text-muted-foreground">Searching...</p>
+                </div>
               )}
             </div>
             
@@ -758,16 +824,7 @@ const Settings: React.FC = () => {
             <Button
               type="button"
               variant="outline"
-              onClick={() => {
-                setIsInviteModalOpen(false);
-                setInviteName('');
-                setInviteEmail('');
-                setInviteDescription('');
-                setSearchQuery('');
-                clearResults();
-                setShowDropdown(false);
-                setInviteError(null);
-              }}
+              onClick={handleClose}
             >
               Cancel
             </Button>
@@ -1394,7 +1451,6 @@ const Settings: React.FC = () => {
 
   return (
     <>
-      {isInviteModalOpen && <InviteMemberModal />}
       {isRemoveDemoModalOpen && (
         <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
           <Card className="w-full max-w-lg animate-slide-in-up space-y-6 bg-card border-border shadow-2xl">
@@ -1480,9 +1536,11 @@ const Settings: React.FC = () => {
           </Card>
         </div>
       )}
+      
       {isInviteModalOpen && <InviteMemberModal />}
       {isManageMemberModalOpen && <ManageMemberModal />}
       {isChangeRoleDialogOpen && <ChangeRoleDialog />}
+      
       <div className="flex flex-col md:flex-row gap-8">
         <aside className="w-full md:w-1/4">
           <Card className="p-2 sticky top-8">
