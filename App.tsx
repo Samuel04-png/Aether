@@ -337,7 +337,7 @@ const App: React.FC = () => {
           />
         )}
         <main
-          className={`relative flex-1 overflow-x-hidden overflow-y-auto bg-background/50 backdrop-blur-2xl p-4 pb-20 transition-all md:p-6 lg:p-10 lg:pb-10 ${
+          className={`relative flex-1 overflow-x-hidden overflow-y-auto bg-background/50 backdrop-blur-2xl p-2 sm:p-4 pb-20 transition-all md:p-6 lg:p-10 lg:pb-10 ${
             isDesktop ? 'pt-10' : ''
           }`}
         >
@@ -378,7 +378,7 @@ const App: React.FC = () => {
       )}
       {!isDesktop && (
         <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
-          <SheetContent side="left" className="p-0 w-72 sm:max-w-sm">
+          <SheetContent side="left" className="p-0 w-[85vw] max-w-72 sm:max-w-sm">
             <SheetHeader className="px-6 pt-6 pb-4">
               <SheetTitle>Navigate</SheetTitle>
             </SheetHeader>
@@ -397,8 +397,8 @@ const App: React.FC = () => {
         </Sheet>
       )}
       {showDemoDataDialog && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/70 backdrop-blur">
-          <Card className="w-full max-w-lg animate-slide-in-up">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background/70 backdrop-blur p-4">
+          <Card className="w-full max-w-lg animate-slide-in-up max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 border-b border-border pb-4">
               <div className="p-2 rounded-full bg-primary/10">
                 <SparklesIcon className="h-5 w-5 text-primary" />

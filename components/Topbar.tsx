@@ -68,7 +68,7 @@ const Topbar: React.FC<TopbarProps> = ({
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="sticky top-0 z-40 px-6 pt-4"
+      className="sticky top-0 z-40 px-3 sm:px-4 md:px-6 pt-3 sm:pt-4"
     >
       <div
         className={cn(
@@ -82,7 +82,7 @@ const Topbar: React.FC<TopbarProps> = ({
           <div className="flex items-center gap-3">
             <img src={logoSrc} alt="Aether" className="h-9 w-auto select-none" />
           </div>
-          <div className="relative w-full max-w-md">
+          <div className="relative w-full max-w-md hidden sm:block">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
               <SearchIcon className="h-[18px] w-[18px] text-slate-500 transition-colors dark:text-white/65" />
             </div>
@@ -99,7 +99,7 @@ const Topbar: React.FC<TopbarProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -221,7 +221,7 @@ const Topbar: React.FC<TopbarProps> = ({
                 </Avatar>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-56 max-w-[calc(100vw-2rem)]">
               <DropdownMenuLabel className="font-normal">
                 <div className="flex flex-col space-y-1">
                   <p className="text-sm font-medium leading-none">{user?.displayName ?? 'User'}</p>

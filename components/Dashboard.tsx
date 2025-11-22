@@ -445,7 +445,7 @@ const Dashboard: React.FC<{ onNavigate?: (view: string) => void }> = ({ onNaviga
   return (
     <>
       <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-[95vw] max-w-[500px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Upload Business Data</DialogTitle>
             <DialogDescription>
@@ -499,7 +499,7 @@ const Dashboard: React.FC<{ onNavigate?: (view: string) => void }> = ({ onNaviga
                   type={kpiType === 'revenue' || kpiType === 'traffic' || kpiType === 'custom' ? 'text' : 'number'}
                     />
                   </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
               <div className="space-y-2">
                 <Label htmlFor="kpi-change">Change</Label>
                 <Input
@@ -572,7 +572,7 @@ const Dashboard: React.FC<{ onNavigate?: (view: string) => void }> = ({ onNaviga
         </DialogContent>
       </Dialog>
 
-      <PageContainer className="space-y-12 pb-24">
+      <PageContainer className="space-y-6 sm:space-y-8 md:space-y-12 pb-24">
         <PageHeader
           eyebrow="Executive summary"
           title="Mission Control"
@@ -588,7 +588,7 @@ const Dashboard: React.FC<{ onNavigate?: (view: string) => void }> = ({ onNaviga
           variants={staggerContainer}
           initial="initial"
           animate="animate"
-            className="grid grid-cols-1 gap-5 lg:grid-cols-3"
+            className="grid grid-cols-1 gap-3 sm:gap-4 md:gap-5 lg:grid-cols-3"
           >
           <motion.div variants={staggerItem}>
               <Card className="group relative overflow-hidden border-border/60 bg-gradient-to-br from-primary/5 via-card/85 to-card/85 backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-primary/10">
@@ -922,7 +922,7 @@ const Dashboard: React.FC<{ onNavigate?: (view: string) => void }> = ({ onNaviga
             variants={staggerContainer}
             initial="initial"
             animate="animate"
-            className="grid grid-cols-1 gap-5 lg:grid-cols-2"
+            className="grid grid-cols-1 gap-3 sm:gap-4 md:gap-5 lg:grid-cols-2"
           >
           <motion.div variants={staggerItem}>
               <Card className="border-border/60 bg-card/85 backdrop-blur-sm shadow-md transition-shadow hover:shadow-xl">
@@ -942,9 +942,10 @@ const Dashboard: React.FC<{ onNavigate?: (view: string) => void }> = ({ onNaviga
               </CardHeader>
               <CardContent>
                 {tasksLoading ? (
-                  <Skeleton className="h-[280px] w-full" />
+                  <Skeleton className="h-[200px] sm:h-[280px] w-full" />
                 ) : productivityData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={280}>
+                  <div className="w-full h-[200px] sm:h-[280px]">
+                    <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={productivityData}>
                       <defs>
                         <linearGradient id="completedGradient" x1="0" y1="0" x2="0" y2="1">
@@ -973,6 +974,7 @@ const Dashboard: React.FC<{ onNavigate?: (view: string) => void }> = ({ onNaviga
                         <Area type="monotone" dataKey="inProgress" stroke="oklch(var(--chart-3))" strokeWidth={2} fill="url(#inProgressGradient)" name="In progress" />
                     </AreaChart>
                   </ResponsiveContainer>
+                  </div>
                 ) : (
                     <div className="py-12 text-center">
                       <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-500/10">
@@ -1003,9 +1005,10 @@ const Dashboard: React.FC<{ onNavigate?: (view: string) => void }> = ({ onNaviga
               </CardHeader>
               <CardContent>
                 {loading ? (
-                  <Skeleton className="h-[280px] w-full" />
+                  <Skeleton className="h-[200px] sm:h-[280px] w-full" />
                 ) : projectStatusData.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={280}>
+                  <div className="w-full h-[200px] sm:h-[280px]">
+                    <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={projectStatusData}>
                       <defs>
                         <linearGradient id="projectGradient" x1="0" y1="0" x2="0" y2="1">
@@ -1029,6 +1032,7 @@ const Dashboard: React.FC<{ onNavigate?: (view: string) => void }> = ({ onNaviga
                         <Bar dataKey="count" fill="url(#projectGradient)" radius={[12, 12, 0, 0]} name="Projects" />
                     </BarChart>
                   </ResponsiveContainer>
+                  </div>
                 ) : (
                     <div className="py-12 text-center">
                       <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-blue-500/10">
@@ -1105,7 +1109,7 @@ const Dashboard: React.FC<{ onNavigate?: (view: string) => void }> = ({ onNaviga
                     <p className="mb-3 text-sm text-muted-foreground">
                       Upload your business data to unlock AI-powered insights tailored to your business.
                     </p>
-                    <Button size="sm" onClick={() => setIsUploadModalOpen(true)} className="w-full sm:w-auto">
+                    <Button size="sm" onClick={() => setIsUploadModalOpen(true)} className="w-full sm:w-auto text-xs sm:text-sm">
                       Upload data now
                     </Button>
                   </div>

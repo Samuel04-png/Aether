@@ -37,7 +37,7 @@ const Header: React.FC<HeaderProps> = ({ activeView, onToggleNotifications, onOp
                 animate={fadeInDown.animate}
                 exit={fadeInDown.exit}
                 transition={transitions.quick}
-                className="bg-card/90 backdrop-blur-xl px-4 py-3 flex items-center justify-between border-b border-border/60 h-16 flex-shrink-0 shadow-md z-10 lg:hidden"
+                className="bg-card/90 backdrop-blur-xl px-2 sm:px-4 py-2 sm:py-3 flex items-center justify-between border-b border-border/60 h-14 sm:h-16 flex-shrink-0 shadow-md z-10 lg:hidden overflow-x-hidden"
             
             >
                 <div className="flex items-center gap-3">
@@ -54,19 +54,19 @@ const Header: React.FC<HeaderProps> = ({ activeView, onToggleNotifications, onOp
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={transitions.quick}
-                        className="text-xl sm:text-2xl font-bold gradient-text"
+                        className="text-base sm:text-xl md:text-2xl font-bold gradient-text truncate max-w-[50vw] sm:max-w-none break-words"
                     >
                         {currentView?.label || 'Dashboard'}
                     </motion.h2>
                 </div>
                 
                 <div className="flex items-center gap-3 sm:gap-4">
-                    <div className="hidden md:block">
+                    <div className="hidden lg:block">
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <SearchInput 
                                     placeholder="Search..."
-                                    className="w-64"
+                                    className="w-48 lg:w-64"
                                 />
                             </TooltipTrigger>
                             <TooltipContent>

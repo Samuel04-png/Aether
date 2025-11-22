@@ -31,12 +31,12 @@ const TaskCard: React.FC<{
     draggable
     onDragStart={() => onDragStart(task.id)}
     onClick={() => onClick(task)}
-    className="p-3 bg-card border border-border rounded-md shadow-sm mb-3 cursor-pointer hover:shadow-md transition-shadow"
+    className="p-2.5 sm:p-3 bg-card border border-border rounded-md shadow-sm mb-2 sm:mb-3 cursor-pointer hover:shadow-md transition-shadow break-words"
     whileHover={{ scale: 1.01 }}
     whileDrag={{ scale: 0.98, opacity: 0.8 }}
   >
     <div className="flex items-start justify-between gap-2">
-      <h4 className="font-semibold text-foreground">{task.title}</h4>
+      <h4 className="font-semibold text-sm sm:text-base text-foreground break-words">{task.title}</h4>
       <Button
         variant="ghost"
         size="icon"
@@ -49,7 +49,7 @@ const TaskCard: React.FC<{
         <TrashIcon className="h-4 w-4" />
       </Button>
     </div>
-    {task.description && <p className="text-sm text-muted-foreground mt-1">{task.description}</p>}
+    {task.description && <p className="text-xs sm:text-sm text-muted-foreground mt-1 break-words">{task.description}</p>}
     {task.dueDate && (
       <Badge variant="outline" className="mt-2 text-xs">
         Due: {task.dueDate}
@@ -264,7 +264,7 @@ const Tasks: React.FC = () => {
       />
       
       <Dialog open={isManualModalOpen} onOpenChange={setIsManualModalOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-[95vw] max-w-[500px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Task</DialogTitle>
             <DialogDescription>
@@ -314,7 +314,7 @@ const Tasks: React.FC = () => {
         </DialogContent>
       </Dialog>
       
-      <PageContainer className="space-y-12 pb-24">
+      <PageContainer className="space-y-6 sm:space-y-8 md:space-y-12 pb-24">
         <PageHeader
           eyebrow="Operations"
           title="Tasks"
@@ -451,7 +451,7 @@ const Tasks: React.FC = () => {
             variants={staggerContainer}
             initial="initial"
             animate="animate"
-            className="grid grid-cols-1 gap-6 md:grid-cols-3"
+            className="grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-3 overflow-x-auto"
           >
             {columns.map((column) => {
               const tasksForColumn = columnTasks[column.id];

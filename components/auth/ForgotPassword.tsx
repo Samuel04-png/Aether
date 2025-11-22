@@ -8,6 +8,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { motion } from 'framer-motion';
 import { fadeInUp, transitions } from '@/lib/motion';
 import { SparklesIcon } from '../shared/Icons';
+import Logo from '@/components/shared/Logo';
 
 interface ForgotPasswordProps {
   onBackToLogin: () => void;
@@ -137,11 +138,7 @@ const ForgotPassword: React.FC<ForgotPasswordProps> = ({ onBackToLogin }) => {
           className="flex items-center justify-center p-2 mb-10"
           whileHover={{ scale: 1.05 }}
         >
-          <img 
-            src="/aether-logo/Logo_with_text.png" 
-            alt="Aether Logo" 
-            className="h-16 w-auto drop-shadow-2xl brightness-110"
-          />
+          <Logo animated />
         </motion.div>
 
         <motion.div

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import Card from '../shared/Card';
 import { SparklesIcon } from '../shared/Icons';
 import { UserProfile } from '../../types';
-import { useTheme } from '@/contexts/ThemeContext';
+import Logo from '@/components/shared/Logo';
 
 interface OnboardingProps {
     onComplete: (profile: { businessName: string; industry: string; goals: string[] }) => Promise<void> | void;
@@ -17,9 +17,6 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialProfile }) =
     const [goals, setGoals] = useState<string[]>(initialProfile?.goals ?? []);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
-    const { theme } = useTheme();
-    const logoSrc = theme === 'dark' ? '/aether-logo/Logo.png' : '/aether-logo/Logo_lightmode.png';
-    
     const totalSteps = 3;
 
     useEffect(() => {
@@ -72,23 +69,19 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialProfile }) =
             <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-accent-start/10" />
             <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,oklch(var(--primary)/0.2),transparent)]" />
             
-            <div className="w-full max-w-2xl px-6 relative z-10">
+            <div className="w-full max-w-2xl px-3 sm:px-4 md:px-6 relative z-10">
                  <Card className="animate-slide-in-up shadow-2xl bg-card/98 backdrop-blur-xl border-2" style={{ borderColor: 'oklch(var(--primary) / 0.2)' }}>
                     <div className="text-center mb-10">
                         <div className="flex items-center justify-center mb-6">
-                            <div className="relative">
-                                <div className="absolute inset-0 bg-gradient-hero opacity-20 blur-2xl rounded-full"></div>
-                                <img 
-                                    src={logoSrc}
-                                    alt="Aether Logo" 
-                                    className="h-20 w-auto drop-shadow-2xl relative z-10"
-                                />
+                            <div className="relative flex items-center justify-center">
+                                <div className="absolute inset-0 bg-gradient-hero opacity-20 blur-2xl rounded-full" />
+                                <Logo animated />
                             </div>
                         </div>
-                        <h1 className="text-4xl font-bold bg-gradient-hero bg-clip-text text-transparent mb-3">
+                        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-hero bg-clip-text text-transparent mb-3 break-words">
                             Welcome to Aether
                         </h1>
-                        <p className="text-muted-foreground text-lg mt-2">Let's personalize your workspace to fit your business needs.</p>
+                        <p className="text-muted-foreground text-sm sm:text-base md:text-lg mt-2 break-words">Let's personalize your workspace to fit your business needs.</p>
                     </div>
 
                     {/* Progress Bar - Premium */}
@@ -112,7 +105,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialProfile }) =
                                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-hero mb-4 shadow-lg shadow-primary/30">
                                     <SparklesIcon className="w-8 h-8 text-white" />
                                 </div>
-                                <h2 className="text-3xl font-bold text-foreground">Let's get started!</h2>
+                                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-foreground break-words">Let's get started!</h2>
                                 <p className="text-muted-foreground mt-4 max-w-lg mx-auto text-base leading-relaxed">
                                     This quick setup will help Aether's AI understand your business, providing you with tailored insights, recommendations, and news.
                                 </p>
@@ -156,7 +149,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialProfile }) =
                                     <h2 className="text-3xl font-bold text-foreground mb-2">What are your primary goals?</h2>
                                     <p className="text-muted-foreground text-base">Select up to 3 goals that matter most to you</p>
                                 </div>
-                                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
                                     {goalOptions.map(goal => (
                                         <motion.button 
                                             key={goal}
@@ -177,7 +170,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onComplete, initialProfile }) =
                         )}
                     </div>
                     
-                    <div className="mt-10 flex justify-between items-center gap-4">
+                    <div className="mt-6 sm:mt-10 flex justify-between items-center gap-2 sm:gap-4 flex-wrap">
                         {step > 1 ? (
                             <motion.button 
                                 onClick={handleBack}

@@ -9,6 +9,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import ForgotPassword from './ForgotPassword';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fadeInUp, transitions } from '@/lib/motion';
+import Logo from '@/components/shared/Logo';
 
 interface AuthProps {
     initialMode?: 'signin' | 'signup';
@@ -175,11 +176,7 @@ const Auth: React.FC<AuthProps> = ({ initialMode = 'signup', onBackToLanding }) 
                     className="flex items-center justify-center p-2 mb-10"
                     whileHover={{ scale: 1.05 }}
                 >
-                    <img 
-                        src="/aether-logo/Logo_with_text.png" 
-                        alt="Aether Logo" 
-                        className="h-16 w-auto drop-shadow-2xl brightness-110"
-                    />
+                    <Logo animated />
                 </motion.div>
                 
                 <motion.div

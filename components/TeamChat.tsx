@@ -425,7 +425,7 @@ const TeamChat: React.FC = () => {
 
       <Dialog open={isChannelSettingsOpen && !!selectedChannel} onOpenChange={setIsChannelSettingsOpen}>
         {selectedChannel && (
-          <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="w-[95vw] max-w-[600px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Channel Settings</DialogTitle>
               <DialogDescription>

@@ -58,15 +58,16 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, className,
         initial={slideLeft.initial}
         animate={{ 
           ...slideLeft.animate,
-          width: collapsed ? '5rem' : '18rem',
+          width: collapsed ? '4rem' : 'clamp(16rem, 20vw, 18rem)',
         }}
         exit={slideLeft.exit}
         transition={transitions.smooth}
         className={cn(
-          "sticky top-0 h-screen bg-gradient-to-b from-sidebar/98 to-sidebar/95 backdrop-blur-2xl flex-shrink-0 p-6 flex flex-col justify-between border-r border-border/40 shadow-[0_8px_32px_rgba(0,0,0,0.12)] z-20 overflow-y-auto",
+          "sticky top-0 h-screen bg-gradient-to-b from-sidebar/98 to-sidebar/95 backdrop-blur-2xl flex-shrink-0 p-3 sm:p-6 flex flex-col justify-between border-r border-border/40 shadow-[0_8px_32px_rgba(0,0,0,0.12)] z-20 overflow-y-auto",
           "will-change-transform",
           "before:absolute before:inset-0 before:bg-gradient-to-br before:from-primary/5 before:via-transparent before:to-transparent before:pointer-events-none",
-          collapsed && "px-3",
+          "max-w-full",
+          collapsed && "px-2 sm:px-3",
           className,
         )}
         style={{
@@ -116,15 +117,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, className,
                 initial={{ opacity: 0, width: 0 }}
                 animate={{ opacity: 1, width: 'auto' }}
                 exit={{ opacity: 0, width: 0 }}
-                className="flex flex-col min-w-0"
+                className="flex flex-col min-w-0 flex-1"
               >
                 <span
-                  className="text-sm font-semibold text-foreground/95 tracking-tight truncate"
+                  className="text-xs sm:text-sm font-semibold text-foreground/95 tracking-tight truncate break-word"
                   title={displayCompanyName}
                 >
                   {displayCompanyName}
                 </span>
-                <span className="text-xs text-muted-foreground/80">Workspace</span>
+                <span className="text-[10px] sm:text-xs text-muted-foreground/80 truncate">Workspace</span>
               </motion.div>
             )}
           </motion.div>
@@ -157,8 +158,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, className,
                             onNavigate?.(item.id);
                           }}
                             className={cn(
-                              "w-full flex items-center rounded-2xl transition-all duration-300 relative group overflow-hidden",
-                              collapsed ? "justify-center px-2 py-3" : "gap-3 px-4 py-3 justify-start",
+                              "w-full flex items-center rounded-xl sm:rounded-2xl transition-all duration-300 relative group overflow-hidden",
+                              collapsed ? "justify-center px-2 py-2.5 sm:py-3" : "gap-2 sm:gap-3 px-2 sm:px-4 py-2.5 sm:py-3 justify-start",
                               isActive
                                 ? "bg-gradient-to-r from-primary/25 via-primary/15 to-primary/10 text-primary shadow-xl shadow-primary/25 border-l-[5px] border-primary font-bold scale-[1.02]"
                                 : isInsights
@@ -182,7 +183,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, className,
                             {!collapsed && (
                               <span
                                 className={cn(
-                                  "font-medium text-sm transition-all duration-200",
+                                  "font-medium text-xs sm:text-sm transition-all duration-200 truncate break-word",
                                   isActive && "font-semibold text-primary",
                                   !isActive && isInsights && "text-foreground/90"
                                 )}
@@ -239,8 +240,8 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, className,
               <Button
                 variant="ghost"
                 className={cn(
-                  "w-full flex items-center rounded-2xl hover:bg-gradient-to-r hover:from-accent/70 hover:to-accent/50 hover:shadow-md transition-all duration-300 group overflow-hidden relative border border-transparent hover:border-border/40",
-                  collapsed ? "justify-center p-2" : "gap-3 p-3 justify-start"
+                  "w-full flex items-center rounded-xl sm:rounded-2xl hover:bg-gradient-to-r hover:from-accent/70 hover:to-accent/50 hover:shadow-md transition-all duration-300 group overflow-hidden relative border border-transparent hover:border-border/40",
+                  collapsed ? "justify-center p-2" : "gap-2 sm:gap-3 p-2 sm:p-3 justify-start"
                 )}
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 pointer-events-none" />
@@ -255,17 +256,17 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, setActiveView, className,
                 </Avatar>
                 {!collapsed && (
                   <div className="flex-1 min-w-0 text-left">
-                    <p className="text-sm font-semibold text-foreground truncate">
+                    <p className="text-xs sm:text-sm font-semibold text-foreground truncate break-word">
                       {user?.displayName ?? 'Aether User'}
                     </p>
-                    <p className="text-xs text-muted-foreground truncate">
+                    <p className="text-[10px] sm:text-xs text-muted-foreground truncate break-word">
                       {user?.email ?? 'Signed in'}
                     </p>
                   </div>
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent align="end" className="w-56 max-w-[calc(100vw-2rem)]">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem>

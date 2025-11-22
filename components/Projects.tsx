@@ -548,7 +548,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
     return (
         <>
             <Dialog open={isAddTaskModalOpen} onOpenChange={setIsAddTaskModalOpen}>
-                <DialogContent className="sm:max-w-[500px]">
+                <DialogContent className="w-[95vw] max-w-[500px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Add Task to Project</DialogTitle>
                         <DialogDescription>
@@ -606,7 +606,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                     clearResults();
                 }
             }}>
-                <DialogContent className="sm:max-w-[500px]">
+                <DialogContent className="w-[95vw] max-w-[500px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <EnvelopeIcon className="h-5 w-5" />
@@ -752,7 +752,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
             />
 
             <Dialog open={isDeleteProjectDialogOpen} onOpenChange={setIsDeleteProjectDialogOpen}>
-                <DialogContent className="sm:max-w-[420px]">
+                <DialogContent className="w-[95vw] max-w-[420px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="text-lg">Delete Project</DialogTitle>
                         <DialogDescription>
@@ -850,7 +850,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                 <Card>
                     <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
                         <CardHeader>
-                            <TabsList className="grid w-full grid-cols-4">
+                            <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1 sm:gap-0">
                                 <TabsTrigger value="tasks" className="gap-2">
                                     <TasksIcon className="h-4 w-4" />
                                     Tasks
@@ -961,7 +961,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                                                 <CardTitle className="text-sm font-medium text-muted-foreground">Available Team Members</CardTitle>
                                             </CardHeader>
                                             <CardContent>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
                                                     {availableMembers.map((member) => (
                                                         <div key={member.id} className="flex items-center justify-between p-2 hover:bg-muted/50 rounded-md">
                                                             <div className="flex items-center gap-3">
@@ -1002,7 +1002,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                                             <CardTitle className="text-lg font-semibold">Project Members</CardTitle>
                                         </CardHeader>
                                         <CardContent>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                                 {project.team.length > 0 ? (
                                                     project.team.map((member) => (
                                                         <Card key={member.id}>
@@ -1321,7 +1321,7 @@ const Projects: React.FC = () => {
                         variants={staggerContainer}
                         initial="initial"
                         animate="animate"
-                        className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3"
+                        className="mt-6 grid grid-cols-1 gap-4 sm:gap-6 md:grid-cols-2 xl:grid-cols-3"
                     >
                         {loading ? (
                             Array.from({ length: 6 }).map((_, i) => (
@@ -1452,7 +1452,7 @@ const Projects: React.FC = () => {
                     }
                 }}
             >
-                <DialogContent className="sm:max-w-[420px]">
+                <DialogContent className="w-[95vw] max-w-[420px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="text-lg">Delete Project</DialogTitle>
                         <DialogDescription>
@@ -1479,7 +1479,7 @@ const Projects: React.FC = () => {
             </Dialog>
 
             <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-                <DialogContent className="sm:max-w-[500px]">
+                <DialogContent className="w-[95vw] max-w-[500px] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <SparklesIcon className="h-5 w-5 text-primary" />

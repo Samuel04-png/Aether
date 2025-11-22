@@ -137,7 +137,7 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
         transition={transitions.quick}
         className="sticky top-0 z-50 border-b border-slate-200/70 bg-white/95 backdrop-blur-xl shadow-sm dark:border-white/10 dark:bg-slate-950/95"
       >
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-7xl items-center justify-between px-3 py-3 sm:px-4 sm:py-4 md:px-6 lg:px-8">
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
             <Logo className="h-10 sm:h-12" animated />
           </motion.div>
@@ -177,8 +177,8 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
       </motion.nav>
 
       <main className="relative z-10">
-        <section className="px-4 py-16 sm:px-6 lg:px-8 lg:py-24">
-          <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2">
+        <section className="px-3 py-12 sm:px-4 sm:py-16 md:px-6 lg:px-8 lg:py-24">
+          <div className="mx-auto grid max-w-6xl items-center gap-6 sm:gap-8 md:gap-12 lg:grid-cols-2">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -189,10 +189,10 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
                 <SparklesIcon className="h-4 w-4" />
                 Early access program
               </Badge>
-              <h1 className="text-4xl font-black leading-tight text-slate-900 sm:text-5xl lg:text-6xl dark:text-white">
+              <h1 className="text-2xl sm:text-3xl md:text-4xl font-black leading-tight text-slate-900 lg:text-5xl xl:text-6xl dark:text-white break-words">
                 Automate every workflow with an AI copilot that understands your business.
               </h1>
-              <p className="text-lg text-slate-600 dark:text-white/70">
+              <p className="text-sm sm:text-base md:text-lg text-slate-600 dark:text-white/70 break-words">
                 Aether unifies analytics, tasks, leads, and collaboration so you can move from insight to execution in minutes.
               </p>
               <div className="flex flex-col gap-4 sm:flex-row">
@@ -265,7 +265,7 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
                 Replace disconnected tools with an operating system that brings automation, analytics, and execution together.
               </p>
             </div>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
               {features.map((feature) => {
                 const Icon = feature.icon;
                 return (
@@ -325,7 +325,7 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
               <h2 className="text-3xl font-black text-slate-900 dark:text-white">How it works</h2>
               <p className="text-slate-600 dark:text-slate-300">Connect your data, choose automations, and let Aether handle the busywork.</p>
             </div>
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-3">
               {[
                 { step: '1', title: 'Connect', desc: 'Add your team, KPIs, and tools—no complex setup required.' },
                 { step: '2', title: 'Automate', desc: 'Use prebuilt flows or let the copilot create ones for you.' },
@@ -351,7 +351,7 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
               <h2 className="text-4xl font-black text-slate-900 dark:text-white">Simple, transparent pricing</h2>
               <p className="text-slate-600 dark:text-slate-300">Select the plan that matches your stage. Paid tiers launch soon.</p>
             </div>
-            <div className="grid gap-6 md:grid-cols-3">
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-3">
               {pricingPlans.map((plan) => (
                 <Card
                   key={plan.name}
@@ -396,7 +396,7 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
               <h2 className="text-3xl font-black text-slate-900 dark:text-white">Frequently asked questions</h2>
               <p className="text-slate-600 dark:text-slate-300">Quick answers before you jump in.</p>
             </div>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 md:grid-cols-2">
               {[
                 { q: 'Is there a free trial?', a: 'Yes. Create a workspace with demo data and explore every feature.' },
                 { q: 'Do I need a credit card?', a: 'Not yet. Pricing tiers will launch soon with annual and monthly options.' },
@@ -512,7 +512,7 @@ const Landing: React.FC<LandingProps> = ({ onGetStarted, onSignIn }) => {
       </main>
 
       <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-5xl border border-slate-200 bg-white/95 p-4 text-slate-900 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/95 dark:text-white">
+        <DialogContent className="w-[95vw] max-w-5xl border border-slate-200 bg-white/95 p-2 sm:p-4 text-slate-900 backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/95 dark:text-white max-h-[90vh] overflow-y-auto">
           <div className="relative">
             <img
               src={screenshots[previewIndex].src}

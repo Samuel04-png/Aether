@@ -20,7 +20,7 @@ const MobileNavbar: React.FC<MobileNavbarProps> = ({ activeView, onNavigate }) =
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 bg-gradient-to-t from-sidebar/98 to-sidebar/95 backdrop-blur-2xl border-t border-border/40 shadow-[0_-8px_32px_rgba(0,0,0,0.12)] before:absolute before:inset-0 before:bg-gradient-to-t before:from-primary/5 before:via-transparent before:to-transparent before:pointer-events-none">
-      <div className="relative flex items-center justify-around h-20 px-3 safe-area-inset-bottom">
+      <div className="relative flex items-center justify-around h-16 sm:h-20 px-2 sm:px-3 safe-area-inset-bottom">
         {navItems.map((item) => {
           const isActive = activeView === item.id;
           const Icon = item.icon;
@@ -62,7 +62,7 @@ const MobileNavbar: React.FC<MobileNavbarProps> = ({ activeView, onNavigate }) =
                 )} />
               </div>
               <span className={cn(
-                "text-[10px] font-medium transition-all duration-300",
+                "text-[9px] sm:text-[10px] font-medium transition-all duration-300 truncate",
                 isActive && "font-bold text-primary"
               )}>
                 {item.label}

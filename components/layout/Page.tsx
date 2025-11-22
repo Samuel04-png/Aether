@@ -17,7 +17,7 @@ export const PageContainer: React.FC<PageContainerProps> = ({ children, classNam
       transition={transitions.smooth}
       className={cn(
         'relative mx-auto w-full max-w-7xl',
-        padded && 'px-2 sm:px-4',
+        padded && 'px-2 sm:px-4 md:px-6',
         className,
       )}
     >
@@ -55,7 +55,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={transitions.quick}
-      className="relative overflow-hidden rounded-3xl border border-border/40 bg-gradient-to-br from-white/80 via-white/55 to-white/30 p-6 sm:p-10 shadow-[0_25px_60px_-35px_rgba(15,114,255,0.55)] backdrop-blur-3xl dark:from-white/10 dark:via-white/5 dark:to-white/0"
+      className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-border/40 bg-gradient-to-br from-white/80 via-white/55 to-white/30 p-4 sm:p-6 md:p-10 shadow-[0_25px_60px_-35px_rgba(15,114,255,0.55)] backdrop-blur-3xl dark:from-white/10 dark:via-white/5 dark:to-white/0"
     >
       <div className="pointer-events-none absolute -top-24 -left-16 h-64 w-64 rounded-full bg-primary/15 blur-3xl dark:bg-primary/25" />
       <div className="pointer-events-none absolute -bottom-28 -right-12 h-72 w-72 rounded-full bg-cyan-400/15 blur-3xl dark:bg-cyan-500/20" />
@@ -67,17 +67,17 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             </span>
           )}
           <div className="space-y-3">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground drop-shadow-sm sm:text-4xl lg:text-[2.65rem] lg:leading-[1.05]">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground drop-shadow-sm md:text-4xl lg:text-[2.65rem] lg:leading-[1.05] break-words">
               {title}
             </h1>
             {subtitle && (
-              <p className="max-w-2xl text-base text-muted-foreground sm:text-lg">
+              <p className="max-w-2xl text-sm sm:text-base text-muted-foreground md:text-lg break-words">
                 {subtitle}
               </p>
             )}
           </div>
           {stats && stats.length > 0 && (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
               {stats.map((stat) => (
                 <div
                   key={stat.label}
@@ -153,8 +153,8 @@ export const PageSection: React.FC<PageSectionProps> = ({ title, description, ac
   const header = (title || description || action) && (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="space-y-1">
-        {title && <h2 className="text-xl font-semibold text-foreground sm:text-2xl">{title}</h2>}
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
+        {title && <h2 className="text-lg sm:text-xl font-semibold text-foreground md:text-2xl break-words">{title}</h2>}
+        {description && <p className="text-xs sm:text-sm text-muted-foreground break-words">{description}</p>}
       </div>
       {action && <div>{action}</div>}
     </div>
@@ -172,7 +172,7 @@ export const PageSection: React.FC<PageSectionProps> = ({ title, description, ac
   return (
     <section className={cn('space-y-6', className)}>
       {header}
-      <div className={cn(surfaceStyles[surface], padded ? 'p-4 sm:p-6' : undefined)}>
+      <div className={cn(surfaceStyles[surface], padded ? 'p-3 sm:p-4 md:p-6' : undefined)}>
         {children}
       </div>
     </section>
