@@ -24,6 +24,10 @@ import { useUserSearch } from '../hooks/useUserSearch';
 import { cn } from '@/lib/utils';
 import TaskStatusDialog from './TaskStatusDialog';
 import { PageContainer, PageHeader, PageSection } from './layout/Page';
+import { DateTimePicker } from '@/components/ui/datetime-picker';
+import { validateAndSuggestDate, formatValidationMessage } from '@/lib/dateValidation';
+import { useAchievements } from './easter-eggs/Achievements';
+import { celebrateProjectCompletion } from './easter-eggs/CelebrationEffects';
 
 interface ProjectTaskColumnProps {
     status: TaskStatus;
@@ -168,6 +172,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
     const [newTaskTitle, setNewTaskTitle] = useState('');
     const [newTaskDescription, setNewTaskDescription] = useState('');
     const [newTaskDueDate, setNewTaskDueDate] = useState('');
+    const [taskDateValidationError, setTaskDateValidationError] = useState<string | undefined>();
     
     // Invite modal state
     const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
@@ -179,6 +184,9 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
     const [isDeletingProject, setIsDeletingProject] = useState(false);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
+    const [isEditingDeadline, setIsEditingDeadline] = useState(false);
+    const [editedDeadline, setEditedDeadline] = useState('');
+    const [deadlineEditError, setDeadlineEditError] = useState<string | undefined>();
 
     // Calculate dynamic progress based on task completion
     const calculatedProgress = useMemo(() => {
@@ -425,12 +433,47 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
             return;
         }
         
+        // Validate task date against project deadline
+        if (newTaskDueDate) {
+            const validation = validateAndSuggestDate(newTaskDueDate, {
+                context: 'task',
+                projectDeadline: project.deadline,
+                allowPast: false,
+            });
+            
+            if (!validation.isValid) {
+                setTaskDateValidationError(validation.reason);
+                if (validation.suggestedDate) {
+                    setNewTaskDueDate(validation.suggestedDate);
+                    toast({
+                        title: 'Date Adjusted',
+                        description: validation.explanation || validation.reason,
+                    });
+                    return;
+                }
+                toast({
+                    variant: 'destructive',
+                    title: 'Invalid Task Date',
+                    description: validation.reason,
+                });
+                return;
+            }
+            
+            if (validation.warnings && validation.warnings.length > 0) {
+                toast({
+                    title: 'Date Warning',
+                    description: validation.warnings.join('. '),
+                    variant: 'default',
+                });
+            }
+        }
+        
         const newTask: Task = {
             id: `task-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             title: newTaskTitle.trim(),
             description: (newTaskDescription || newTaskTitle).trim(),
             status: 'todo',
-            ...(newTaskDueDate && { dueDate: newTaskDueDate }),
+            ...(newTaskDueDate && { dueDate: newTaskDueDate.split('T')[0] }), // Store only date part
             ...(project.id && { projectId: project.id }),
             createdAt: new Date().toISOString(),
         };
@@ -443,6 +486,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
         setNewTaskTitle('');
         setNewTaskDescription('');
         setNewTaskDueDate('');
+        setTaskDateValidationError(undefined);
         
         // Update in background with proper error handling
         try {
@@ -577,13 +621,40 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label htmlFor="new-task-due-date">Due Date (optional)</Label>
-                            <Input
-                                id="new-task-due-date"
-                                type="date"
+                            <DateTimePicker
                                 value={newTaskDueDate}
-                                onChange={(e) => setNewTaskDueDate(e.target.value)}
+                                onChange={(value) => {
+                                    setNewTaskDueDate(value);
+                                    if (value && project?.deadline) {
+                                        const validation = validateAndSuggestDate(value, {
+                                            context: 'task',
+                                            projectDeadline: project.deadline,
+                                            allowPast: false,
+                                        });
+                                        setTaskDateValidationError(validation.isValid ? undefined : validation.reason);
+                                        if (!validation.isValid && validation.suggestedDate) {
+                                            setTimeout(() => {
+                                                setNewTaskDueDate(validation.suggestedDate!);
+                                            }, 100);
+                                        }
+                                    }
+                                }}
+                                label="Due Date (optional)"
+                                placeholder="Select task due date"
+                                showTime={false}
+                                maxDate={project?.deadline}
+                                onValidationChange={(isValid, reason) => {
+                                    setTaskDateValidationError(isValid ? undefined : reason);
+                                }}
                             />
+                            {taskDateValidationError && (
+                                <p className="text-xs text-destructive mt-1">{taskDateValidationError}</p>
+                            )}
+                            {project?.deadline && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    Project deadline: {new Date(project.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                </p>
+                            )}
                         </div>
                     </div>
 
@@ -789,7 +860,101 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate
                 <PageHeader
                     eyebrow="Project workspace"
                     title={project.name}
-                    subtitle={project.description || 'No description provided yet.'}
+                    subtitle={
+                        <div className="space-y-1">
+                            <p>{project.description || 'No description provided yet.'}</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                {isEditingDeadline && canManageProject ? (
+                                    <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                                        <DateTimePicker
+                                            value={editedDeadline}
+                                            onChange={(value) => {
+                                                setEditedDeadline(value);
+                                                const validation = validateAndSuggestDate(value, {
+                                                    context: 'deadline',
+                                                    allowPast: false,
+                                                });
+                                                setDeadlineEditError(validation.isValid ? undefined : validation.reason);
+                                            }}
+                                            label=""
+                                            placeholder="Select deadline"
+                                            showTime={false}
+                                            onValidationChange={(isValid, reason) => {
+                                                setDeadlineEditError(isValid ? undefined : reason);
+                                            }}
+                                            className="flex-1"
+                                        />
+                                        <Button
+                                            size="sm"
+                                            onClick={async () => {
+                                                if (editedDeadline && !deadlineEditError) {
+                                                    await onUpdate(project.id, { deadline: editedDeadline });
+                                                    setIsEditingDeadline(false);
+                                                    setEditedDeadline('');
+                                                    toast({
+                                                        title: 'Deadline Updated',
+                                                        description: 'Project deadline has been updated.',
+                                                    });
+                                                }
+                                            }}
+                                            disabled={!!deadlineEditError}
+                                        >
+                                            Save
+                                        </Button>
+                                        <Button
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => {
+                                                setIsEditingDeadline(false);
+                                                setEditedDeadline('');
+                                                setDeadlineEditError(undefined);
+                                            }}
+                                        >
+                                            Cancel
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        {project.deadline ? (
+                                            <p className="text-sm text-muted-foreground flex items-center gap-2">
+                                                <span>📅 Deadline: {new Date(project.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                                {new Date(project.deadline) < new Date() && (
+                                                    <Badge variant="destructive" className="text-xs">Overdue</Badge>
+                                                )}
+                                                {canManageProject && (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        className="h-6 px-2 text-xs"
+                                                        onClick={() => {
+                                                            setEditedDeadline(project.deadline || '');
+                                                            setIsEditingDeadline(true);
+                                                        }}
+                                                    >
+                                                        Edit
+                                                    </Button>
+                                                )}
+                                            </p>
+                                        ) : (
+                                            canManageProject && (
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="h-7 text-xs"
+                                                    onClick={() => {
+                                                        setEditedDeadline('');
+                                                        setIsEditingDeadline(true);
+                                                    }}
+                                                >
+                                                    + Add Deadline
+                                                </Button>
+                                            )
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    }
                     actions={
                         <div className="flex flex-wrap items-center gap-3">
                             {canManageTasks && (
@@ -1133,12 +1298,15 @@ const Projects: React.FC = () => {
     const { user } = useAuth();
     const { projects, loading, createProject, updateProject, deleteProject } = useProjects(user?.uid);
     const { acceptedMembers } = useTeamMembers(user?.uid);
+    const { unlockAchievement } = useAchievements(user?.uid);
     const { toast } = useToast();
 
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
     const [newProjectName, setNewProjectName] = useState('');
     const [newProjectDescription, setNewProjectDescription] = useState('');
+    const [newProjectDeadline, setNewProjectDeadline] = useState('');
+    const [deadlineValidationError, setDeadlineValidationError] = useState<string | undefined>();
     const [searchTerm, setSearchTerm] = useState('');
     const [projectPendingDelete, setProjectPendingDelete] = useState<Project | null>(null);
     const [isListDeletingProject, setIsListDeletingProject] = useState(false);
@@ -1203,15 +1371,44 @@ const Projects: React.FC = () => {
         const savedName = newProjectName;
         const savedDescription = newProjectDescription;
         
+        // Validate deadline if provided
+        if (newProjectDeadline) {
+            const validation = validateAndSuggestDate(newProjectDeadline, {
+                context: 'deadline',
+                allowPast: false,
+            });
+            
+            if (!validation.isValid) {
+                setDeadlineValidationError(validation.reason);
+                if (validation.suggestedDate) {
+                    setNewProjectDeadline(validation.suggestedDate);
+                    toast({
+                        title: 'Date Adjusted',
+                        description: validation.explanation || validation.reason,
+                    });
+                    return;
+                }
+                toast({
+                    variant: 'destructive',
+                    title: 'Invalid Deadline',
+                    description: validation.reason,
+                });
+                return;
+            }
+        }
+        
         // Optimistically close modal and reset form
         setIsCreateModalOpen(false);
         setNewProjectName('');
         setNewProjectDescription('');
+        setNewProjectDeadline('');
+        setDeadlineValidationError(undefined);
         
         // Create in background
         createProject({
             name: savedName,
             description: savedDescription,
+            deadline: newProjectDeadline || undefined,
             status: 'Not Started',
             progress: 0,
             team: acceptedMembers.slice(0, 1),
@@ -1219,6 +1416,11 @@ const Projects: React.FC = () => {
             files: [],
             chat: [],
         }).then(() => {
+            // Unlock achievement for first project
+            if (projects.length === 0) {
+                unlockAchievement('project_creator');
+            }
+            
             toast({
                 title: 'Project Created',
                 description: `Project "${savedName}" has been created successfully.`,
@@ -1509,6 +1711,34 @@ const Projects: React.FC = () => {
                                 placeholder="A brief summary of the project's goals."
                                 className="min-h-[100px]"
                             />
+                        </div>
+                        <div className="space-y-2">
+                            <DateTimePicker
+                                value={newProjectDeadline}
+                                onChange={(value) => {
+                                    setNewProjectDeadline(value);
+                                    const validation = validateAndSuggestDate(value, {
+                                        context: 'deadline',
+                                        allowPast: false,
+                                    });
+                                    setDeadlineValidationError(validation.isValid ? undefined : validation.reason);
+                                    if (!validation.isValid && validation.suggestedDate) {
+                                        // Auto-suggest if date is invalid
+                                        setTimeout(() => {
+                                            setNewProjectDeadline(validation.suggestedDate!);
+                                        }, 100);
+                                    }
+                                }}
+                                label="Project Deadline (optional)"
+                                placeholder="Select project deadline"
+                                showTime={false}
+                                onValidationChange={(isValid, reason) => {
+                                    setDeadlineValidationError(isValid ? undefined : reason);
+                                }}
+                            />
+                            {deadlineValidationError && (
+                                <p className="text-xs text-destructive mt-1">{deadlineValidationError}</p>
+                            )}
                         </div>
                     </div>
 

@@ -72,6 +72,7 @@ export interface Project {
   status: 'On Track' | 'At Risk' | 'Off Track' | 'Not Started';
   progress: number;
   description: string;
+  deadline?: string; // ISO string for project deadline
   team: TeamMember[];
   projectMembers?: ProjectMember[]; // Enhanced member list with roles
   tasks: Task[];

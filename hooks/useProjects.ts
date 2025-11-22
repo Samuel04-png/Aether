@@ -35,6 +35,7 @@ const normalizeTimestamp = (value: any): string | undefined => {
 export interface NewProjectInput {
   name: string;
   description: string;
+  deadline?: string;
   status?: Project['status'];
   progress?: number;
   team?: TeamMember[];

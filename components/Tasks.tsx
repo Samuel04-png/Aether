@@ -18,6 +18,11 @@ import { fadeInUp, staggerContainer, staggerItem, transitions } from '@/lib/moti
 import { cn } from '@/lib/utils';
 import TaskStatusDialog from './TaskStatusDialog';
 import { PageContainer, PageHeader, PageSection } from './layout/Page';
+import { DateTimePicker } from '@/components/ui/datetime-picker';
+import { validateAndSuggestDate } from '@/lib/dateValidation';
+import { useProjects } from '../hooks/useProjects';
+import { useAchievements } from './easter-eggs/Achievements';
+import { celebrateTaskCompletion } from './easter-eggs/CelebrationEffects';
 
 type Column = { id: TaskStatus; title: string; tasks: Task[] };
 
@@ -70,6 +75,10 @@ const Tasks: React.FC = () => {
     const [manualTitle, setManualTitle] = useState('');
     const [manualDescription, setManualDescription] = useState('');
     const [manualDueDate, setManualDueDate] = useState('');
+    const [manualProjectId, setManualProjectId] = useState<string | undefined>();
+    const [taskDateValidationError, setTaskDateValidationError] = useState<string | undefined>();
+    const { projects } = useProjects(user?.uid);
+    const { unlockAchievement } = useAchievements(user?.uid);
     const [selectedTask, setSelectedTask] = useState<Task | null>(null);
     const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
 
@@ -191,15 +200,69 @@ const Tasks: React.FC = () => {
             return;
         }
         
+        // Validate task date against project deadline if project is selected
+        const selectedProject = manualProjectId ? projects.find(p => p.id === manualProjectId) : null;
+        if (manualDueDate && selectedProject?.deadline) {
+            const validation = validateAndSuggestDate(manualDueDate, {
+                context: 'task',
+                projectDeadline: selectedProject.deadline,
+                allowPast: false,
+            });
+            
+            if (!validation.isValid) {
+                setTaskDateValidationError(validation.reason);
+                if (validation.suggestedDate) {
+                    setManualDueDate(validation.suggestedDate);
+                    toast({
+                        title: 'Date Adjusted',
+                        description: validation.explanation || validation.reason,
+                    });
+                    return;
+                }
+                toast({
+                    variant: 'destructive',
+                    title: 'Invalid Task Date',
+                    description: validation.reason,
+                });
+                return;
+            }
+        } else if (manualDueDate) {
+            // Validate even without project deadline
+            const validation = validateAndSuggestDate(manualDueDate, {
+                context: 'task',
+                allowPast: false,
+            });
+            
+            if (!validation.isValid) {
+                setTaskDateValidationError(validation.reason);
+                if (validation.suggestedDate) {
+                    setManualDueDate(validation.suggestedDate);
+                    toast({
+                        title: 'Date Adjusted',
+                        description: validation.explanation || validation.reason,
+                    });
+                    return;
+                }
+                toast({
+                    variant: 'destructive',
+                    title: 'Invalid Task Date',
+                    description: validation.reason,
+                });
+                return;
+            }
+        }
+        
         const savedTitle = manualTitle;
         const savedDescription = manualDescription || manualTitle;
-        const savedDueDate = manualDueDate || undefined;
+        const savedDueDate = manualDueDate ? manualDueDate.split('T')[0] : undefined;
         
         // Optimistically close modal and reset form
         setIsManualModalOpen(false);
         setManualTitle('');
         setManualDescription('');
         setManualDueDate('');
+        setManualProjectId(undefined);
+        setTaskDateValidationError(undefined);
         setIsCreating(true);
         
         addTask({
@@ -207,6 +270,7 @@ const Tasks: React.FC = () => {
             description: savedDescription,
             status: 'todo',
             dueDate: savedDueDate,
+            projectId: manualProjectId,
         }).then(() => {
             toast({
                 title: 'Task Created',
@@ -293,13 +357,63 @@ const Tasks: React.FC = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="task-due-date">Due Date (optional)</Label>
-              <Input
-                id="task-due-date"
-                type="date"
+              <Label htmlFor="task-project">Project (optional)</Label>
+              <Select value={manualProjectId || ''} onValueChange={(value) => setManualProjectId(value || undefined)}>
+                <SelectTrigger id="task-project">
+                  <SelectValue placeholder="Select a project" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No project</SelectItem>
+                  {projects.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <DateTimePicker
                 value={manualDueDate}
-                onChange={(e) => setManualDueDate(e.target.value)}
+                onChange={(value) => {
+                  setManualDueDate(value);
+                  const selectedProject = manualProjectId ? projects.find(p => p.id === manualProjectId) : null;
+                  if (value && selectedProject?.deadline) {
+                    const validation = validateAndSuggestDate(value, {
+                      context: 'task',
+                      projectDeadline: selectedProject.deadline,
+                      allowPast: false,
+                    });
+                    setTaskDateValidationError(validation.isValid ? undefined : validation.reason);
+                    if (!validation.isValid && validation.suggestedDate) {
+                      setTimeout(() => {
+                        setManualDueDate(validation.suggestedDate!);
+                      }, 100);
+                    }
+                  } else if (value) {
+                    const validation = validateAndSuggestDate(value, {
+                      context: 'task',
+                      allowPast: false,
+                    });
+                    setTaskDateValidationError(validation.isValid ? undefined : validation.reason);
+                  }
+                }}
+                label="Due Date (optional)"
+                placeholder="Select task due date"
+                showTime={false}
+                maxDate={manualProjectId ? projects.find(p => p.id === manualProjectId)?.deadline : undefined}
+                onValidationChange={(isValid, reason) => {
+                  setTaskDateValidationError(isValid ? undefined : reason);
+                }}
               />
+              {taskDateValidationError && (
+                <p className="text-xs text-destructive mt-1">{taskDateValidationError}</p>
+              )}
+              {manualProjectId && projects.find(p => p.id === manualProjectId)?.deadline && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Project deadline: {new Date(projects.find(p => p.id === manualProjectId)!.deadline!).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
+              )}
             </div>
           </div>
 

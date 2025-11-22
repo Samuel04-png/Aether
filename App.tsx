@@ -33,6 +33,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import MobileNavbar from './components/MobileNavbar';
 import { useScreenSize } from './hooks/useScreenSize';
 import { Analytics } from "@vercel/analytics/react"
+import { KeyboardShortcuts } from './components/easter-eggs/KeyboardShortcuts';
+import { useKonamiCode, KonamiCodeIndicator } from './components/easter-eggs/KonamiCode';
+import { useHiddenCommands } from './components/easter-eggs/HiddenCommands';
 
 // Lazy load heavy components for better performance
 const Dashboard = lazy(() => import('./components/Dashboard'));
@@ -74,6 +77,8 @@ const App: React.FC = () => {
   const { profile, loading: profileLoading, saveProfile } = useUserProfile(user?.uid);
   const { toast } = useToast();
   const { isDesktop, isMobile } = useScreenSize();
+  const { isActivated: konamiActivated } = useKonamiCode();
+  useHiddenCommands();
   const workspaceName = useMemo(() => {
     const name = profile?.businessName;
     if (!name) return undefined;
@@ -368,6 +373,8 @@ const App: React.FC = () => {
         <NotificationsDrawer isOpen={isNotificationsOpen} onClose={() => setIsNotificationsOpen(false)} />
         <Toaster />
         <Analytics />
+        <KeyboardShortcuts />
+        <KonamiCodeIndicator isActivated={konamiActivated} />
       </div>
       {user && (
         <ByteBerryCopilot

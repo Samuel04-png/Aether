@@ -14,6 +14,8 @@ import { useScheduledPosts, ScheduledPost } from '../hooks/useScheduledPosts';
 import { generateSocialPost, generateWebsiteAudit, WebsiteAuditResult } from '../services/deepseekService';
 import { storage } from '../services/firebase';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { DateTimePicker } from '@/components/ui/datetime-picker';
+import { validateAndSuggestDate } from '@/lib/dateValidation';
 
 type InsightTab = 'social' | 'website';
 type MessageTone = 'Professional' | 'Witty' | 'Excited' | 'Informative';
@@ -886,11 +888,28 @@ const Insights: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Schedule Date & Time</label>
-                  <Input
-                    type="datetime-local"
+                  <DateTimePicker
                     value={editDate}
-                    onChange={(e) => setEditDate(e.target.value)}
+                    onChange={(value) => {
+                      setEditDate(value);
+                      const validation = validateAndSuggestDate(value, {
+                        context: 'meeting',
+                        allowPast: false,
+                      });
+                      if (!validation.isValid && validation.suggestedDate) {
+                        setTimeout(() => {
+                          setEditDate(validation.suggestedDate!);
+                        }, 100);
+                      }
+                    }}
+                    label="Schedule Date & Time"
+                    placeholder="Select date and time"
+                    showTime={true}
+                    onValidationChange={(isValid, reason) => {
+                      if (!isValid && reason) {
+                        // Show warning but allow it for scheduling
+                      }
+                    }}
                   />
                 </div>
               </div>

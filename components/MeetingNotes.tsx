@@ -18,6 +18,7 @@ import { SparklesIcon, UploadIcon, ClockIcon, UsersIcon } from './shared/Icons';
 import { Skeleton } from '@/components/ui/skeleton';
 import { fadeInUp, staggerContainer, staggerItem } from '@/lib/motion';
 import { Mic, FileAudio, CheckCircle2, Calendar, Play } from 'lucide-react';
+import { DateTimePicker } from '@/components/ui/datetime-picker';
 
 const MeetingNotes: React.FC = () => {
   const { user } = useAuth();
@@ -178,12 +179,13 @@ const MeetingNotes: React.FC = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="meeting-date">Date</Label>
-                <Input
-                  id="meeting-date"
-                  type="date"
-                  value={meetingDate}
-                  onChange={(e) => setMeetingDate(e.target.value)}
+                <DateTimePicker
+                  value={meetingDate ? `${meetingDate}T00:00:00` : ''}
+                  onChange={(value) => setMeetingDate(value.split('T')[0])}
+                  label="Date"
+                  placeholder="Select meeting date"
+                  showTime={false}
+                  allowPast={true}
                 />
               </div>
               <div>

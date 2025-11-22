@@ -38,9 +38,10 @@ import { useToast } from '@/hooks/use-toast';
 import { useSlackIntegration } from '../hooks/useSlackIntegration';
 import { getSlackOAuthUrl } from '../services/slackService';
 import { useHubSpotIntegration } from '../hooks/useHubSpotIntegration';
-import { Slack } from 'lucide-react';
+import { Slack, Trophy } from 'lucide-react';
+import { useAchievements, AchievementsDialog } from './easter-eggs/Achievements';
 
-type SettingsTab = 'profile' | 'team' | 'integrations' | 'billing';
+type SettingsTab = 'profile' | 'team' | 'integrations' | 'billing' | 'achievements';
 
 // Slack Integration Card Component
 const SlackIntegrationCard: React.FC = () => {
@@ -387,6 +388,8 @@ const Settings: React.FC = () => {
   const { user } = useAuth();
   const { profile, loading: profileLoading, saveProfile } = useUserProfile(user?.uid);
   const { members, pendingMembers, acceptedMembers, loading: membersLoading, addMember, acceptMember, rejectMember, deleteMember, updateMember } = useTeamMembers(user?.uid);
+  const { achievements, unlockedAchievements } = useAchievements(user?.uid);
+  const [isAchievementsDialogOpen, setIsAchievementsDialogOpen] = useState(false);
   const { searchUsers, clearResults, searchResults: globalSearchResults, isSearching: isSearchingGlobal } = useUserSearch();
   const { channels, createChannel } = useChannels(user?.uid);
   const { toast } = useToast();
@@ -662,6 +665,12 @@ const Settings: React.FC = () => {
             console.warn('Failed to send notification to invited user:', notifyError);
             // Don't fail the entire invite if notification fails
           }
+        }
+        
+        // Check for team player achievement
+        const totalInvites = (acceptedMembers.length + pendingMembers.length + 1);
+        if (totalInvites >= 3) {
+          unlockAchievement('team_player');
         }
         
         // Close modal and reset form
@@ -1408,6 +1417,35 @@ const Settings: React.FC = () => {
                 </div>
             </div>
         );
+      case 'achievements':
+        return (
+          <div className="space-y-6 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">Achievements</h2>
+                <p className="text-muted-foreground mt-1">Track your progress and unlock achievements as you use Aether</p>
+              </div>
+              <Badge variant="default" className="text-lg px-4 py-2">
+                {unlockedAchievements.size} / {achievements.length}
+              </Badge>
+            </div>
+            <Card>
+              <CardContent className="p-6">
+                <div className="text-center py-8">
+                  <Trophy className="h-16 w-16 mx-auto text-amber-500 mb-4" />
+                  <h3 className="text-xl font-semibold text-foreground mb-2">Your Achievements</h3>
+                  <p className="text-muted-foreground mb-6">
+                    Unlock achievements by completing tasks, creating projects, and using Aether features.
+                  </p>
+                  <Button onClick={() => setIsAchievementsDialogOpen(true)} className="gap-2">
+                    <Trophy className="h-4 w-4" />
+                    View All Achievements
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        );
       case 'billing':
         return (
            <div className="space-y-6 animate-fade-in">
@@ -1540,6 +1578,11 @@ const Settings: React.FC = () => {
       {isInviteModalOpen && <InviteMemberModal />}
       {isManageMemberModalOpen && <ManageMemberModal />}
       {isChangeRoleDialogOpen && <ChangeRoleDialog />}
+      <AchievementsDialog 
+        open={isAchievementsDialogOpen} 
+        onOpenChange={setIsAchievementsDialogOpen}
+        unlockedAchievements={unlockedAchievements}
+      />
       
       <div className="flex flex-col md:flex-row gap-8">
         <aside className="w-full md:w-1/4">
@@ -1548,6 +1591,16 @@ const Settings: React.FC = () => {
               <button onClick={() => setActiveTab('profile')} className={`w-full text-left px-4 py-2 rounded-[var(--radius)] font-medium transition-colors ${activeTab === 'profile' ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted/50'}`}>Profile</button>
               <button onClick={() => setActiveTab('team')} className={`w-full text-left px-4 py-2 rounded-[var(--radius)] font-medium transition-colors ${activeTab === 'team' ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted/50'}`}>Team Members</button>
               <button onClick={() => setActiveTab('integrations')} className={`w-full text-left px-4 py-2 rounded-[var(--radius)] font-medium transition-colors ${activeTab === 'integrations' ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted/50'}`}>Integrations</button>
+              <button onClick={() => setActiveTab('achievements')} className={`w-full text-left px-4 py-2 rounded-[var(--radius)] font-medium transition-colors ${activeTab === 'achievements' ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted/50'}`}>
+                <div className="flex items-center justify-between">
+                  <span>Achievements</span>
+                  {unlockedAchievements.size > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      {unlockedAchievements.size}
+                    </Badge>
+                  )}
+                </div>
+              </button>
               <button onClick={() => setActiveTab('billing')} className={`w-full text-left px-4 py-2 rounded-[var(--radius)] font-medium transition-colors ${activeTab === 'billing' ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted/50'}`}>Billing</button>
             </nav>
           </Card>
